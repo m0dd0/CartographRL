@@ -17,7 +17,8 @@ setuptools.setup(
     # therfore it might be useful to fix the versions someday
     install_requires=[
         "numpy",
-        "scikit-image"   
+        "scikit-image",
+        "gymnasium"   
     ],
     extras_require={"dev": ["black", "pylint", "jupyter"]},
     include_package_data=True,

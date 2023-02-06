@@ -1,5 +1,6 @@
 from enum import Enum
 from itertools import groupby
+from typing import List
 
 import numpy as np
 import skimage as ski
@@ -504,22 +505,66 @@ SCORING_CARDS = [
 ]
 
 
-class ScoringCardStack:
-    def __init__(self, heroes: bool = False):
+class ScoringDeck:
+    def __init__(
+        self,
+        heroes: bool = False,
+        rng: np.random.Generator = None,
+        predefined_cards: List[ScoringCard] = None,
+    ):
+        self.predefined_cards = predefined_cards
+
+        if rng is None:
+            rng = np.random.default_rng()
+        self.rng = rng
+
         self._all_cards = [c for c in SCORING_CARDS if heroes or not c.is_hero()]
 
         self._cards_by_type = {}
         for t in TaskType:
-            self._cards_by_type[t] = [c for c in self._all_cards if c.task_type == t]
+            cards = [c for c in self._all_cards if c.task_type == t]
+            rng.shuffle(cards)
+            self._cards_by_type[t] = cards
 
-        self._cards_by_name = {c.name: c for c in self._all_cards}
+    def draw_scoring_card(
+        self,
+        order: List[TaskType],
+    ) -> List[ScoringCard]:
+        if self.predefined_cards is not None:
+            return self.predefined_cards
 
-    def get_card_by_name(self, name: str) -> ScoringCard:
-        return self._cards_by_name[name]
-
-    def draw_tasks(self, order: List[TaskType]) -> List[ScoringCard]:
         if order is None:
-            order = np.random
-        assert len(order) == 4
+            order = self.rng.shuffle(
+                [
+                    TaskType.VILLAGE,
+                    TaskType.FOREST,
+                    TaskType.WATER_FARM,
+                    TaskType.MOUNTAIN,
+                ]
+            )
 
-        return random.sample(self.cards)
+        assert len(order) == len(set([t.value for t in order])) == 4
+
+        tasks = [self.rng.choice(self._cards_by_type[t]) for t in order]
+
+        return tasks
+
+
+# class Season:
+#     # @classmethod
+#     # def generate_spring(cls):
+#     #     return cls(
+#     #         name="Frühling",
+
+#     def __init__(self, name, time, tasks):
+#         self.name = name
+#         self.time = time
+#         assert len(tasks) == 2
+#         self.tasks = tasks
+
+#         self.score = 0
+
+#     def evaluate(self, map):
+#         for task in self.tasks:
+#             self.score += task.evaluate(board)
+#         map.surrounded_mountains = 0

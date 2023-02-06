@@ -1,52 +1,46 @@
-from dataclasses import dataclass
 from typing import List, Tuple
+from enum import Enum
 
-from .terrains import Terrain
-from .general import MonsterCorner, MonsterRotation
+import numpy as np
+
+from .general import Card, Terrains
 
 
-@dataclass
-class ExplorationOption:
+class ExplorationOption(Card):
     coin: bool
     coords: List[Tuple[int, int]]
     terrain: Terrain
 
 
-@dataclass
-class ExplorationCard:
+class ExplorationCard(Card):
     name: str
     card_id: int
     time: int
     options: List[ExplorationOption]
 
-    def is_hero(self):
-        if self.card_id % 100 == 1:
-            return False
-        elif self.card_id % 100 == 2:
-            return True
-        else:
-            raise ValueError("Card ID is invalid.")
+
+class MonsterCorner(Enum):
+    TOP_LEFT = 1
+    TOP_RIGHT = 2
+    BOTTOM_LEFT = 3
+    BOTTOM_RIGHT = 4
 
 
-@dataclass
-class MonsterCard:
+class MonsterRotation(Enum):
+    CLOCKWISE = 1
+    COUNTER_CLOCKWISE = 2
+
+
+class MonsterCard(Card):
     name: str
     card_id: int
     position: MonsterCorner
     rotation: MonsterRotation
 
 
-# class Season:
-#     # @classmethod
-#     # def generate_spring(cls):
-#     #     return cls(
-#     #         name="Frühling",
-
-#     def __init__(self, name, time, tasks):
-#         self.name = name
-#         self.time = time
-#         assert len(tasks) == 2
-#         self.tasks = tasks
+class RuinCard(Card):
+    name: str
+    card_id: int
 
 
 EXPLORATION_CARDS = [
@@ -251,7 +245,43 @@ MONSTER_CARDS = [
     ),
 ]
 
+RUIN_CARDS = [
+    RuinCard(name="Verfallenert Außernposeten", card_id=106),
+    RuinCard(name="Tempelruinen", card_id=105),
+]
 
-class ExplorationCardStack:
-    def __init__(self, heroes: bool = False):
-        self._cards = [c for c in EXPLORATION_CARDS if heroes or not c.is_hero()]
+
+class ExplorationDeck:
+    def _filter_heroes(self, cards, heroes: bool):
+        if heroes:
+            return cards
+        else:
+            return [c for c in cards if not c.is_hero()]
+
+    def __init__(
+        self,
+        heroes: bool = False,
+        n_ruins: int = None,
+        n_monsters: int = None,
+        rng: np.random.Generator = None,
+    ):
+        exploration_cards = self._filter_heroes(EXPLORATION_CARDS, heroes)
+        ruin_cards = self._filter_heroes(RUIN_CARDS, heroes)
+        monster_cards = self._filter_heroes(MONSTER_CARDS, heroes)
+
+        if rng is None:
+            rng = np.random.default_rng()
+
+        if n_ruins is not None:
+            ruin_cards = rng.choice(ruin_cards, n_ruins, replace=False).tolist()
+        if n_monsters is not None:
+            monster_cards = rng.choice(
+                monster_cards, n_monsters, replace=False
+            ).tolist()
+
+        self._cards = exploration_cards + ruin_cards + monster_cards
+
+        rng.shuffle(self._cards)
+
+    def draw(self) -> Card:
+        return self._cards.pop()

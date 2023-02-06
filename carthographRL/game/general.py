@@ -1,13 +1,32 @@
+from dataclasses import dataclass
+from abc import ABC
 from enum import Enum
 
 
-class Corner(Enum):
-    TOP_LEFT = 1
-    TOP_RIGHT = 2
-    BOTTOM_LEFT = 3
-    BOTTOM_RIGHT = 4
+class Terrains(Enum):
+    VILLAGE = 1
+    WATER = 2
+    FOREST = 3
+    FARM = 4
+    MONSTER = 5
+    EMPTY = 6
+    MOUNTAIN = 7
+    WASTE = 8
 
 
-class MonsterRotation(Enum):
-    CLOCKWISE = 1
-    COUNTER_CLOCKWISE = 2
+@dataclass
+class Card(ABC):
+    name: str
+    card_id: int
+
+    def is_hero(self):
+        if self.card_id % 100 == 1:
+            return False
+        elif self.card_id % 100 == 2:
+            return True
+        else:
+            raise ValueError("Card ID is invalid.")
+
+
+class InvalidMoveError(Exception):
+    pass

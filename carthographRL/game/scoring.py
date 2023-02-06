@@ -1,14 +1,11 @@
 from enum import Enum
-from itertools import groupby
 from typing import List, Callable
 from dataclasses import dataclass
 
 import numpy as np
-import skimage as ski
-from nptype import NDArray, Shape, Int, Boole
 
 from .general import Terrains, Card
-from .map import Map
+from .map import Map, Cluster
 
 
 class TaskType(Enum):
@@ -28,132 +25,44 @@ class ScoringCard(Card):
     description: str
 
 
-def _cluster_map(
-    terrain_map: NDArray[Shape["S, S"], Int], terrain_type: int
-) -> NDArray[Shape["S, S"], Int]:
-    return ski.measure.label(
-        terrain_map == terrain_type, background=False, connectivity=1
-    )
-
-
-def _clusters_masks(
-    terrain_map: NDArray[Shape["S, S"], Int], terrain_type: int
-) -> List[NDArray[Shape["S, S"], Boole]]:
-    clusters = _cluster_map(terrain_map, terrain_type)
-    clusters_maps = []
-    for cluster_label in np.unique(clusters):
-        if cluster_label == 0:
-            continue
-
-        clusters_maps.append(clusters == cluster_label)
-
-    return clusters_maps
-
-
-def _clusters_coords(
-    terrain_map: NDArray[Shape["S, S"], Int], terrain_type: int
-) -> List[NDArray[Shape["N, 2"], Int]]:
-    clusters = _cluster_map(terrain_map, terrain_type)
-    cluster_coords = []
-    for cluster_label in np.unique(clusters):
-        if cluster_label == 0:
-            continue
-
-        cluster_coords.append(np.argwhere(clusters == cluster_label))
-
-    # cluster_coords = np.array(cluster_coords) # not possible as the cluster_coords have different lengths
-
-    return cluster_coords
-
-
-def _boundary_mask(
-    terrain_map: NDArray[Shape["S, S"], Int], terrain_type: int
-) -> NDArray[Shape["S, S"], Int]:
-    return ski.segmentation.find_boundaries(
-        terrain_map == terrain_type, mode="outer", connectivity=1
-    )
-
-
-def _boundaries_masks(
-    terrain_map: NDArray[Shape["S, S"], Int], terrain_type: int
-) -> List[NDArray[Shape["S, S"], Boole]]:
-    cluster_masks = _clusters_masks(terrain_map, terrain_type)
-
-    boundaries_masks = []
-    for cluster_mask in cluster_masks:
-        boundaries_masks.append(
-            ski.segmentation.find_boundaries(cluster_mask, mode="outer", connectivity=1)
-        )
-
-    return boundaries_masks
-
-
-def _boundaries_values(
-    terrain_map: NDArray[Shape["S, S"], Int], terrain_type: int
-) -> List[NDArray[Shape["N"], Int]]:
-    boundaries_mask = _boundaries_masks(terrain_map, terrain_type)
-
-    boundary_values = []
-    for boundary_mask in boundaries_mask:
-        boundary_values.append(terrain_map[boundary_mask])
-    return boundary_values
-
-
-def _boundaries_coords(
-    terrain_map: NDArray[Shape["S, S"], Int], terrain_type: int
-) -> List[NDArray[Shape["N, 2"], Int]]:
-    boundaries_mask = _boundaries_masks(terrain_map, terrain_type)
-
-    boundary_coords = []
-    for boundary_mask in boundaries_mask:
-        boundary_coords.append(np.argwhere(boundary_mask))
-
-    return boundary_coords
-
-
 def bastionen_der_wildnis(map_sheet: Map) -> int:
     """8 Punkte für jedes Dorf-Gebite das aus minedstens 6 Dorf-Feldern besteht."""
-    cluster_coords = _clusters_coords(map_sheet.terrain_map, Terrains.VILLAGE.value)
-
-    return len([c for c in cluster_coords if len(c) >= 6]) * 8
+    clusters = map_sheet.clusters(Terrains.VILLAGE)
+    return len([c for c in clusters if len(c) >= 6]) * 8
 
 
 def metropole(map_sheet: Map) -> int:
     """1 Ruhmpunkt für jedes Dorf-Feld in deinem größten Dorf-Gebiet, das nicht an ein oder mehrere Gebirgs-Felder angrenzt."""
-
-    clusters_coords = _clusters_coords(map_sheet.terrain_map, Terrains.VILLAGE.value)
+    clusters = map_sheet.clusters(Terrains.VILLAGE)
 
     valid_cluster_sizes = []
-    for cluster_coords in clusters_coords:
-        if Terrains.MOUNTAIN.value not in map_sheet.terrain_map[cluster_coords]:
-            valid_cluster_sizes.append(len(cluster_coords))
+    for c in clusters:
+        if Terrains.VILLAGE.value not in c.surrounding_terrains():
+            valid_cluster_sizes.append(len(c))
 
     return max(valid_cluster_sizes) if valid_cluster_sizes else 0
 
 
 def schild_des_reiches(map_sheet: Map) -> int:
     """2 Ruhmpunkte für jedes Dorf-Feld in deinem zweitgrößten Dorf-Gebiet."""
-    clusters = _cluster_map(map_sheet.terrain_map, Terrains.VILLAGE.value)
-    cluster_labels, cluster_sizes = np.unique(clusters, return_counts=True)
-
-    if len(cluster_labels) < 3:
-        # there is only one or no house cluster so there is no second largest cluster
+    clusters = map_sheet.clusters(Terrains.VILLAGE)
+    if len(clusters) < 3:
         return 0
 
-    return np.sort(cluster_sizes)[-2] * 2
+    return sorted(len(c) for c in clusters)[-2] * 2
 
 
 def schillernde_ebene(map_sheet: Map) -> int:
     """3 Ruhmpunkte für jedes Dorf-Gebiet das an mindestens 3 unterschieldiche Geländearten angrenzt."""
 
-    boundarys_values = _boundary_values_by_cluster(
-        map_sheet.terrain_map, Terrains.VILLAGE.value
-    )
+    clusters = map_sheet.clusters(Terrains.VILLAGE)
+
     score = 0
-    for boundary_values in boundarys_values:
-        boundary_values = list(np.unique(boundary_values))
-        boundary_values.remove(Terrains.EMPTY.value)
-        if len(boundary_values) >= 3:
+    for c in clusters:
+        surrounding_terrain_types = set(c.surrounding_terrains())
+        surrounding_terrain_types.remove(Terrains.EMPTY.value)
+        # TODO are there any other terrains that should be removed? monsters, wasteland, etc?
+        if len(set(c.surrounding_terrains())) >= 3:
             score += 3
 
     return score
@@ -162,12 +71,12 @@ def schillernde_ebene(map_sheet: Map) -> int:
 def karawanserei(map_sheet: Map) -> int:
     """1 Ruhmpunkt für jede Zeile und Spalte mit mindestens 1 Feld eines von dir gewählten Dorf-Gebietes."""
 
-    clusters_coords = _cluster_coords(map_sheet.terrain_map, Terrains.VILLAGE.value)
+    clusters = map_sheet.clusters(Terrains.VILLAGE)
 
     scores = []
-    for cluster_coords in clusters_coords:
-        n_rows = np.max(cluster_coords[:, 0]) - np.min(cluster_coords[:, 0]) + 1
-        n_cols = np.max(cluster_coords[:, 1]) - np.min(cluster_coords[:, 1]) + 1
+    for c in clusters:
+        n_rows = np.max(c.coords[:, 0]) - np.min(c.coords[:, 0]) + 1
+        n_cols = np.max(c.coords[:, 1]) - np.min(c.coords[:, 1]) + 1
 
         scores.append(n_rows + n_cols)
 
@@ -177,13 +86,11 @@ def karawanserei(map_sheet: Map) -> int:
 def die_aeusserste_enklave(map_sheet: Map) -> int:
     """1 Ruhmpunkt für jedes leere Feld, das an ein von dir gewähltes Dorf-Gebiet angrenzt."""
 
-    boundaries_values = _boundary_values_by_cluster(
-        map_sheet.terrain_map, Terrains.VILLAGE.value
-    )
+    clusters = map_sheet.clusters(Terrains.EMPTY)
 
     scores = []
-    for boundary_values in boundaries_values:
-        scores.append(len(boundary_values[boundary_values == Terrains.EMPTY.value]))
+    for c in clusters:
+        scores.append(len(c.surrounding_values() == Terrains.VILLAGE.value))
 
     return max(scores) if scores else 0
 
@@ -191,20 +98,17 @@ def die_aeusserste_enklave(map_sheet: Map) -> int:
 def gnomkolonie(map_sheet: Map) -> int:
     """6 Ruhmpunkte für jedes Dorf-Gebite mit mindestens 1 ausgefüllten Quadrat der größe 2x2."""
 
-    clusters_coords = _cluster_coords(map_sheet.terrain_map, Terrains.VILLAGE.value)
+    clusters = map_sheet.clusters(Terrains.VILLAGE)
+
+    shape = np.array([[0, 0], [0, 1], [1, 0], [1, 1]])
 
     score = 0
-    for cluster_coords in clusters_coords:
-        for cluster_coord in cluster_coords:
-            needed_coords = set(
-                [
-                    tuple(cluster_coord),
-                    tuple(cluster_coord + np.array([0, 1])),
-                    tuple(cluster_coord + np.array([1, 0])),
-                    tuple(cluster_coord + np.array([1, 1])),
-                ]
-            )
-            if needed_coords <= set([tuple(idx) for idx in cluster_coords]):
+    for c in clusters:
+        cluster_coords_set = set([tuple(idx) for idx in c.coords])
+        for pivot_coord in c.coords:
+            needed_coords = set([tuple(pivot_coord + s) for s in shape])
+
+            if needed_coords <= cluster_coords_set:
                 score += 6
                 break
 
@@ -214,19 +118,19 @@ def gnomkolonie(map_sheet: Map) -> int:
 def traykloster(map_sheet: Map) -> int:
     """7 Ruhmpunkte für jedes Dorf-Gebiet mit mindestens 1 ausgefüllten Rechteck der größe 1x4 (oder 4x1)."""
 
-    clusters_coords = _cluster_coords(map_sheet.terrain_map, Terrains.VILLAGE.value)
+    clusters = map_sheet.clusters(Terrains.VILLAGE)
+
+    shape_1 = np.array([[0, 0], [0, 1], [0, 2], [0, 3]])
+    shape_2 = np.array([[0, 0], [1, 0], [2, 0], [3, 0]])
 
     score = 0
-    for cluster_coords in clusters_coords:
-        c_map = np.zeros(map_sheet.terrain_map.shape, dtype=bool)
-        c_map[cluster_coords] = True
-
-        for line in c_map.tolist() + c_map.T.tolist():
-            house_counts = [
-                sum(1 for _ in group) for val, group in groupby(line) if val
-            ]
-            n_houses = max(house_counts) if len(house_counts) > 0 else 0
-            if n_houses >= 4:
+    for c in clusters:
+        cluster_coords_set = set([tuple(idx) for idx in c.coords])
+        for pivot_coord in c.coords:
+            if (
+                set([tuple(pivot_coord + s) for s in shape_1]) <= cluster_coords_set
+                or set([tuple(pivot_coord + s) for s in shape_2]) <= cluster_coords_set
+            ):
                 score += 7
                 break
 
@@ -236,46 +140,15 @@ def traykloster(map_sheet: Map) -> int:
 def pfad_des_waldes(map_sheet: Map) -> int:
     """3 Ruhmpunkte für jedes Gebirgs-Feld, das über mindestens 1 Wald-Gebiet mit mindestens 1 anderen Gebirgs-Feld verbunden ist."""
 
-    boundaries_values = _boundary_values_by_cluster(
-        map_sheet.terrain_map, Terrains.FOREST.value
-    )
+    clusters = map_sheet.clusters(Terrains.FOREST)
 
-    valid_mountains = set()
-    for boundary_values in boundaries_values:
-        if np.sum(boundary_values == Terrains.MOUNTAIN.value) >= 2:
-            valid_mountains.update(
-                set(
-                    [
-                        tuple(idx)
-                        for idx in np.argwhere(
-                            boundary_values == Terrains.MOUNTAIN.value
-                        )
-                    ]
-                )
-            )
+    connected_mountains = set()
+    for c in clusters:
+        mountain_coords = np.argwhere(c.surrounding_map() == Terrains.MOUNTAIN.value)
+        if len(mountain_coords) >= 2:
+            connected_mountains.update(set([tuple(c) for c in mountain_coords]))
 
-    # clusters = ski.measure.label(
-    #     map_sheet == Terrains.FOREST.value, background=False, connectivity=1
-    # )
-
-    # bonus_mountains_indices = set()
-    # for cluster_label in np.unique(clusters):
-    #     if cluster_label == 0:
-    #         continue
-
-    #     surrounding_mask = ski.segmentation.find_boundaries(
-    #         clusters == cluster_label, mode="outer", connectivity=1
-    #     )
-
-    #     connected_mountains_indices = np.argwhere(
-    #         np.logical_and(surrounding_mask, map_sheet == Terrains.MOUNTAIN.value)
-    #     )
-    #     if len(connected_mountains_indices) > 1:
-    #         bonus_mountains_indices.update(
-    #             set([tuple(idx) for idx in connected_mountains_indices])
-    #         )
-
-    # return len(bonus_mountains_indices) * 3
+    return len(connected_mountains) * 3
 
 
 def schildwald(map_sheet: Map) -> int:
@@ -293,12 +166,8 @@ def gruenflaeche(map_sheet: Map) -> int:
 
     n_lines = 0
 
-    for row in map_sheet:
-        if Terrains.FOREST.value in row:
-            n_lines += 1
-
-    for col in map_sheet.T:
-        if Terrains.FOREST.value in col:
+    for line in np.concatenate((map_sheet.terrain_map, map_sheet.terrain_map.T)):
+        if Terrains.FOREST.value in line:
             n_lines += 1
 
     return n_lines
@@ -308,15 +177,8 @@ def duesterwald(map_sheet: Map) -> int:
     """1 Ruhmpunkt für jedes Wald-Feld das an 4 ausgefüllte Felder (und/oder den Rand) angrenzt."""
 
     score = 0
-
-    for forest_idx in np.argwhere(map_sheet == Terrains.FOREST.value):
-        f = np.full(map_sheet.shape, 0)
-        f[forest_idx[0], forest_idx[1]] = 1
-        surrounding_mask = ski.segmentation.find_boundaries(
-            f, mode="outer", connectivity=1
-        )
-
-        if Terrains.EMPTY.value not in map_sheet[np.argwhere(surrounding_mask)]:
+    for c in np.argwhere(map_sheet.terrain_map == Terrains.FOREST.value):
+        if map_sheet.is_surrounded(c):
             score += 1
 
     return score
@@ -325,34 +187,33 @@ def duesterwald(map_sheet: Map) -> int:
 def goldener_kornspeicher(map_sheet: Map) -> int:
     """1 Ruhmpunkt für jedes Wasser-Feld, das an minestens 1 Ruinen-Feld grenzt. 3 Ruhmpunkte für jedes Acker-Feld, auf einem Ruinen-Feld."""
 
-    # TODO this is the only scoring card in cartographers that uses the tempel map_sheet
-    # we need to implement the handling of the tempel map_sheet first
-    raise NotImplementedError()
+    score = 0
+    for water_coord in np.argwhere(map_sheet.terrain_map == Terrains.WATER.value):
+        c = Cluster([water_coord], map_sheet)
+        if any(surr in map_sheet.ruin_coords for surr in c.surrounding_coords()):
+            score += 1
+
+    for field_coord in np.argwhere(map_sheet.terrain_map == Terrains.FIELD.value):
+        if field_coord in map_sheet.ruin_coords:
+            score += 3
+
+    return score
 
 
 def tal_der_magier(map_sheet: Map) -> int:
     """2 Ruhmpunkte für jedes Wasser-Feld, das an mindestens 1 Gebirgs-Feld grenzt. 1 Ruhmpunkt für jedes Acker-Feld, das an mindestens 1 Gebirgs-Feld grenzt."""
 
+    mountain_coords = np.argwhere(map_sheet.terrain_map == Terrains.MOUNTAIN.value)
+
     score = 0
-
-    for water_idx in np.argwhere(map_sheet == Terrains.WATER.value):
-        f = np.full(map_sheet.shape, 0)
-        f[water_idx[0], water_idx[1]] = 1
-        surrounding_mask = ski.segmentation.find_boundaries(
-            f, mode="outer", connectivity=1
-        )
-
-        if Terrains.MOUNTAIN.value in map_sheet[np.argwhere(surrounding_mask)]:
+    for water_coord in np.argwhere(map_sheet.terrain_map == Terrains.WATER.value):
+        c = Cluster([water_coord], map_sheet)
+        if any(surr in mountain_coords for surr in c.surrounding_coords()):
             score += 2
 
-    for map_sheet_idx in np.argwhere(map_sheet == Terrains.FARM.value):
-        f = np.full(map_sheet.shape, 0)
-        f[map_sheet_idx[0], map_sheet_idx[1]] = 1
-        surrounding_mask = ski.segmentation.find_boundaries(
-            f, mode="outer", connectivity=1
-        )
-
-        if Terrains.MOUNTAIN.value in map_sheet[np.argwhere(surrounding_mask)]:
+    for field_coord in np.argwhere(map_sheet.terrain_map == Terrains.FIELD.value):
+        c = Cluster([field_coord], map_sheet)
+        if any(surr in mountain_coords for surr in c.surrounding_coords()):
             score += 1
 
     return score
@@ -361,26 +222,18 @@ def tal_der_magier(map_sheet: Map) -> int:
 def bewaesserungskanal(map_sheet: Map) -> int:
     """1 Ruhmpunkt für jedes Wasser-Feld, das an mindestens 1 Acker-Feld grenzt. 1 Ruhmpunkt für jedes Acker-Feld, das an mindestens 1 Wasser-Feld grenzt."""
 
+    water_coords = np.argwhere(map_sheet.terrain_map == Terrains.WATER.value)
+    field_coords = np.argwhere(map_sheet.terrain_map == Terrains.FIELD.value)
+
     score = 0
-
-    for water_idx in np.argwhere(map_sheet == Terrains.WATER.value):
-        f = np.full(map_sheet.shape, 0)
-        f[water_idx[0], water_idx[1]] = 1
-        surrounding_mask = ski.segmentation.find_boundaries(
-            f, mode="outer", connectivity=1
-        )
-
-        if Terrains.FARM.value in map_sheet[np.argwhere(surrounding_mask)]:
+    for water_coord in water_coords:
+        c = Cluster([water_coord], map_sheet)
+        if any(surr in field_coords for surr in c.surrounding_coords()):
             score += 1
 
-    for map_sheet_idx in np.argwhere(map_sheet == Terrains.FARM.value):
-        f = np.full(map_sheet.shape, 0)
-        f[map_sheet_idx[0], map_sheet_idx[1]] = 1
-        surrounding_mask = ski.segmentation.find_boundaries(
-            f, mode="outer", connectivity=1
-        )
-
-        if Terrains.WATER.value in map_sheet[np.argwhere(surrounding_mask)]:
+    for field_coord in field_coords:
+        c = Cluster([field_coord], map_sheet)
+        if any(surr in water_coords for surr in c.surrounding_coords()):
             score += 1
 
     return score
@@ -388,33 +241,14 @@ def bewaesserungskanal(map_sheet: Map) -> int:
 
 def ausgedehnte_straende(map_sheet: Map) -> int:
     """3 Ruhmpunkte für für jedes Acker-Gebiet, das weder an den Rand noch an 1 oder mehrere Wasser-Felder grenzt. 3 Ruhmpunkte für jedes Wasser-Gebiet, das weder an den Rand noch an 1 oder mehrere Acker-Felder grenzt."""
-
     score = 0
-    for space_type_1, space_type_2 in [
-        (Terrains.FARM.value, Terrains.WATER.value),
-        (Terrains.WATER.value, Terrains.FARM.value),
-    ]:
-        clusters = ski.measure.label(
-            map_sheet == space_type_1, background=False, connectivity=1
-        )
-        for cluster_label in np.unique(clusters):
-            if cluster_label == 0:
-                continue
+    for c in map_sheet.clusters(Terrains.FIELD):
+        if Terrains.WATER.value not in c.surrounding_terrains() and not c.on_edge():
+            score += 3
 
-            cluster = clusters == cluster_label
-            cluster_indices = np.argwhere(cluster)
-            surrounding_mask = ski.segmentation.find_boundaries(
-                cluster, mode="outer", connectivity=1
-            )
-            surrounding_indices = np.argwhere(surrounding_mask)
-
-            if space_type_2 not in map_sheet[surrounding_indices] and np.all(
-                cluster_indices[:, 0] > 0
-                and cluster_indices[:, 0] < map_sheet.shape[0] - 1
-                and cluster_indices[:, 1] > 0
-                and cluster_indices[:, 1] < map_sheet.shape[1] - 1
-            ):
-                score += 3
+    for c in map_sheet.clusters(Terrains.WATER):
+        if Terrains.FIELD.value not in c.surrounding_terrains() and not c.on_edge():
+            score += 3
 
     return score
 

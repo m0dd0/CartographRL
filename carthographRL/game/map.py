@@ -2,7 +2,7 @@ from typing import List, Tuple
 
 import numpy as np
 import skimage as ski
-from nptyping import NDArray, Shape, Int
+from nptyping import NDArray, Shape, Int, Bool
 
 from .general import InvalidMoveError, Terrains
 from .exploration import ExplorationOption
@@ -60,7 +60,7 @@ class Map:
     def _validate_coords(
         self, coords: NDArray[Shape["N, 2"], Int], on_ruin: bool
     ) -> bool:
-        if not np.all(coords < self.terrain_map.shape):
+        if any(self.is_outside(coord) for coord in coords):
             raise InvalidMoveError("At least one of the fields is out of bounds.")
 
         if not np.all(self.terrain_map[coords] == Terrains.EMPTY.value):
@@ -103,20 +103,11 @@ class Map:
     def get_surrounded_mountains(self) -> int:
         coords = np.argwhere(self.terrain_map == Terrains.MOUNTAIN.value)
 
-        n_surrounded = 0
-        for mountain_coord in coords:
-            f = np.full(self.terrain_map.shape, 0)
-            f[mountain_coord] = 1
-            surrounding_terrains = self.terrain_map[
-                np.argwhere(
-                    ski.segmentation.find_boundaries(f, connectivity=1, mode="outer")
-                )
-            ]
-
-            if np.all(surrounding_terrains != Terrains.EMPTY.value):
-                n_surrounded += 1
-
-        return n_surrounded
+        n = 0
+        for c in coords:
+            if self.is_surrounded(c):
+                n += 1
+        return n
 
     def place(
         self,
@@ -132,11 +123,8 @@ class Map:
         self.terrain_map[coords] = exploration_option.terrain.value
 
     def eval_monsters(self) -> int:
-        monsters_boundary = ski.segmentation.find_boundaries(
-            self.terrain_map == Terrains.MONSTER.value, connectivity=1, mode="outer"
-        )
-
-        return np.count_nonzero(monsters_boundary)
+        c = Cluster(np.argwhere(self.terrain_map == Terrains.MONSTER.value), self)
+        return len(c.surrounding_coords())
 
     def is_setable(self, exploration_option: ExplorationOption, on_ruin: bool) -> bool:
         for x in range(self.terrain_map.shape[0]):
@@ -151,3 +139,66 @@ class Map:
                     except InvalidMoveError:
                         pass
         return False
+
+    def clusters(self, terrain_type: Terrains) -> List[Cluster]:
+        cluster_map = ski.measure.label(
+            self.terrain_map == terrain_type.value, background=False, connectivity=1
+        )
+
+        return [
+            Cluster(np.argwhere(cluster_map == cluster_label), self)
+            for cluster_label in np.unique(cluster_map)
+            if cluster_label != 0
+        ]
+
+    def is_outside(self, coord: Tuple[int, int]) -> bool:
+        return (
+            coord[0] < 0
+            or coord[0] >= self.terrain_map.shape[0]
+            or coord[1] < 0
+            or coord[1] >= self.terrain_map.shape[1]
+        )
+
+    def is_surrounded(self, coord: Tuple[int, int]) -> bool:
+        coord = np.array(coord)
+        offsets = np.array([[0, 1], [1, 0], [0, -1], [-1, 0]])
+        surroundings = coord + offsets
+
+        return all(
+            self.is_outside(c) or self[c] != Terrains.EMPTY.value for c in surroundings
+        )
+
+    def __getitem__(self, key):
+        return self.terrain_map[key]
+
+
+class Cluster:
+    def __init__(self, coords: NDArray[Shape["N, 2"], Int], map_sheet: Map):
+        self.coords = coords
+        self.map_sheet = map_sheet
+
+    def surrounding_mask(self) -> NDArray[Shape["S, S"], Bool]:
+        f = np.full(self.map_sheet.terrain_map.shape, False)
+        f[self.coords] = True
+        return ski.segmentation.find_boundaries(f, mode="outer", connectivity=1)
+
+    def surrounding_coords(self) -> NDArray[Shape["N, 2"], Int]:
+        return np.argwhere(self.surrounding_mask())
+
+    def surrounding_map(self) -> NDArray[Shape["S, S"], Int]:
+        f = self.map_sheet.terrain_map.copy()
+        f[not self.surrounding_mask()] = -1
+
+        return f
+
+    def surrounding_terrains(self) -> NDArray[Shape["N"], Int]:
+        return self.map_sheet.terrain_map[self.surrounding_coords()]
+
+    def on_edge(self) -> bool:
+        return any(
+            c in (0, self.map_sheet.terrain_map.shape[0] - 1)
+            for c in self.coords.flatten()
+        )
+
+    def __len__(self):
+        return len(self.coords)

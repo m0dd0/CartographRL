@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from .general import Terrains, Card
+from .general import Terrains, Card, CardDeck
 from .map import Map, Cluster
 
 
@@ -253,6 +253,57 @@ def ausgedehnte_straende(map_sheet: Map) -> int:
     return score
 
 
+def unzugaengliche_baronie(map_sheet: Map) -> int:
+    """3 Ruhmpunkte für jede Spalte deines größten, vollständig ausgefüllten Quadrats an Feldern"""
+
+    scores = []
+    size = map_sheet.terrain_map.shape[0]
+    for i in range(size):
+        for j in range(size):
+            for offset in range(size - max(i, j)):
+                if Terrains.EMPTY.value in map_sheet[i : i + offset, j : j + offset]:
+                    scores.append(offset)
+                    break
+
+    return max(scores) * 3
+
+
+def grenzland(map_sheet: Map) -> int:
+    """6 Ruhmpunkte für jede vollständig ausgefüllte Zeile und für jede vollständig ausgefüllte Spalte."""
+
+    score = 0
+    for line in np.concatenate((map_sheet.terrain_map, map_sheet.terrain_map.T)):
+        if Terrains.EMPTY.value not in line:
+            score += 6
+
+    return score
+
+
+def die_kessel(map_sheet: Map) -> int:
+    """1 Ruhmpunkt für jedes leere Feld, das an 4 ausgefüllte Felder (und/oder den Rand) grenzt."""
+
+    score = 0
+    for empty_coord in np.argwhere(map_sheet.terrain_map == Terrains.EMPTY.value):
+        if map_sheet.is_surrounded(empty_coord):
+            score += 1
+
+    return score
+
+
+def die_lange_strasse(map_sheet: Map) -> int:
+    """3 Ruhmpunkte für jede Diagonale vom linken zum unteren Rand, in der alle Felder ausgefüllt sind."""
+
+    size = map_sheet.terrain_map.shape[0]
+    score = 0
+    for i in range(size):
+        if Terrains.EMPTY.value not in np.diag(
+            map_sheet.terrain_map[i:size, 0 : size - i]
+        ):
+            score += 3
+
+    return score
+
+
 SCORING_CARDS = [
     ScoringCard(
         "Bastionen in der Wildnis",
@@ -382,41 +433,52 @@ SCORING_CARDS = [
         27,
         "3 Ruhmpunkte für für jedes Acker-Gebiet, das weder an den Rand noch an 1 oder mehrere Wasser-Felder grenzt. 3 Ruhmpunkte für jedes Wasser-Gebiet, das weder an den Rand noch an 1 oder mehrere Acker-Felder grenzt.",
     ),
+    ScoringCard(
+        "Unzugängliche Baronie",
+        139,
+        TaskType.GEOMETRY,
+        unzugaengliche_baronie,
+        24,
+        "3 Ruhmpunkte für jede Spalte deines größten, vollständig ausgefüllten Quadrats an Feldern.",
+    ),
+    ScoringCard(
+        "Grenzland",
+        138,
+        TaskType.GEOMETRY,
+        grenzland,
+        24,
+        "6 Ruhmpunkte für jede vollständig ausgefüllte Zeile und für jede vollständig ausgefüllte Spalte.",
+    ),
+    ScoringCard(
+        "Die Kessel",
+        141,
+        TaskType.GEOMETRY,
+        die_kessel,
+        20,
+        "1 Ruhmpunkt für jedes leere Feld, das an 4 ausgefüllte Felder (und/oder den Rand) grenzt.",
+    ),
+    ScoringCard(
+        "Die lange Straße",
+        140,
+        TaskType.GEOMETRY,
+        die_lange_strasse,
+        24,
+        "3 Ruhmpunkte für jede Diagonale vom linken zum unteren Rand, in der alle Felder ausgefüllt sind.",
+    ),
 ]
 
 SCORING_CARDS_BY_NAME = {c.name: c for c in SCORING_CARDS}
 SCORING_CARDS_BY_ID = {c.id: c for c in SCORING_CARDS}
 
 
-class ScoringDeck:
+class ScoringDeck(CardDeck):
     def __init__(
         self,
-        heroes: bool = False,
+        cards: List[ScoringCard],
         rng: np.random.Generator = None,
-        predefined_cards: List[ScoringCard] = None,
+        order: List[TaskType] = None,
     ):
-        assert not heroes, "Heroes not supported yet"
-
-        self.predefined_cards = predefined_cards
-
-        if rng is None:
-            rng = np.random.default_rng()
-        self.rng = rng
-
-        self._all_cards = [c for c in SCORING_CARDS if heroes or not c.is_hero()]
-
-        self._cards_by_type = {}
-        for t in TaskType:
-            cards = [c for c in self._all_cards if c.task_type == t]
-            rng.shuffle(cards)
-            self._cards_by_type[t] = cards
-
-    def draw_scoring_card(
-        self,
-        order: List[TaskType],
-    ) -> List[ScoringCard]:
-        if self.predefined_cards is not None:
-            return self.predefined_cards
+        super().__init__(cards, rng)
 
         if order is None:
             order = self.rng.shuffle(
@@ -427,9 +489,14 @@ class ScoringDeck:
                     TaskType.MOUNTAIN,
                 ]
             )
-
         assert len(order) == len(set([t.value for t in order])) == 4
+        self.order = order
 
-        scoring_card = [self.rng.choice(self._cards_by_type[t]) for t in order]
+    def draw(self) -> List[ScoringCard]:
+        scoring_cards = [None, None, None, None]
+        for c in self.cards:
+            for i, t in enumerate(order):
+                if c.task_type == t and scoring_cards[i] is None:
+                    scoring_cards[i] = c
 
-        return scoring_card
+        return scoring_cards

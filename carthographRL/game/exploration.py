@@ -224,24 +224,28 @@ MONSTER_CARDS = [
         card_id=102,
         position=MonsterCorner.TOP_RIGHT,
         rotation=MonsterRotation.CLOCKWISE,
+        coords=[(0, 0), (0, 2), (1, 0), (1, 2)],
     ),
     MonsterCard(
         name="Goblinattacke",
         card_id=101,
         position=MonsterCorner.BOTTOM_LEFT,
         rotation=MonsterRotation.COUNTER_CLOCKWISE,
+        coords=[(0, 0), (1, 1), (2, 2)],
     ),
     MonsterCard(
         name="Koboldansturm",
         card_id=103,
         position=MonsterCorner.BOTTOM_LEFT,
         rotation=MonsterRotation.CLOCKWISE,
+        coords=[(0, 0), (1, 0), (1, 1), (2, 0)],
     ),
     MonsterCard(
         name="Gnollangriff",
         card_id=104,
         position=MonsterCorner.TOP_LEFT,
         rotation=MonsterRotation.COUNTER_CLOCKWISE,
+        coords=[(0, 0), (0, 1), (1, 0), (2, 0), (2, 1)],
     ),
 ]
 
@@ -249,39 +253,3 @@ RUIN_CARDS = [
     RuinCard(name="Verfallenert Außernposeten", card_id=106),
     RuinCard(name="Tempelruinen", card_id=105),
 ]
-
-
-class ExplorationDeck:
-    def _filter_heroes(self, cards, heroes: bool):
-        if heroes:
-            return cards
-        else:
-            return [c for c in cards if not c.is_hero()]
-
-    def __init__(
-        self,
-        heroes: bool = False,
-        n_ruins: int = None,
-        n_monsters: int = None,
-        rng: np.random.Generator = None,
-    ):
-        exploration_cards = self._filter_heroes(EXPLORATION_CARDS, heroes)
-        ruin_cards = self._filter_heroes(RUIN_CARDS, heroes)
-        monster_cards = self._filter_heroes(MONSTER_CARDS, heroes)
-
-        if rng is None:
-            rng = np.random.default_rng()
-
-        if n_ruins is not None:
-            ruin_cards = rng.choice(ruin_cards, n_ruins, replace=False).tolist()
-        if n_monsters is not None:
-            monster_cards = rng.choice(
-                monster_cards, n_monsters, replace=False
-            ).tolist()
-
-        self._cards = exploration_cards + ruin_cards + monster_cards
-
-        rng.shuffle(self._cards)
-
-    def draw(self) -> Card:
-        return self._cards.pop()

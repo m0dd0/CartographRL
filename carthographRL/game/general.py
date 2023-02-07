@@ -1,6 +1,9 @@
 from dataclasses import dataclass
 from abc import ABC
 from enum import Enum
+from typing import List
+
+import numpy as np
 
 
 class Terrains(Enum):
@@ -26,6 +29,19 @@ class Card(ABC):
             return True
         else:
             raise ValueError("Card ID is invalid.")
+
+
+class CardDeck:
+    def __init__(self, cards: List[Card], rng: np.random.Generator = None):
+        if rng is None:
+            rng = np.random.default_rng()
+        self.rng = rng
+
+        self.cards = cards
+        self.rng.shuffle(self.cards)
+
+    def draw(self) -> Card:
+        return self.cards.pop(0)
 
 
 class InvalidMoveError(Exception):

@@ -1,20 +1,26 @@
 import gymnasium as gym
 
-from .general import InvalidMoveError
+from .general import InvalidMoveError, CardDeck
+from .scoring import ScoringDeck
+from .map import Map
 
 
 class CarthographersEnv(gym.Env):
     metadata = {"render.modes": ["human"]}
 
-    def __init__(self, render_mode=None, size: int = 11):
-        #  def __init__(self, map, scoring_card_stack, exploration_card_stack):
-        self.map = map
-        self.scoring_card_stack = scoring_card_stack
-        self.exploration_card_stack = exploration_card_stack
+    def __init__(
+        self,
+        scoring_deck: ScoringDeck,
+        exploration_deck: CardDeck,
+        map_sheet: Map,
+        season_times: Tuple[int, int, int, int] = (8, 8, 7, 6),
+        render_mode: str = None,
+    ):
+        self.map_sheet = map_sheet
+        self.exploration_deck = exploration_deck
+        self.scoring_cards = scoring_deck.draw()
+        self.season_times = season_times
 
-        self.tasks = self.scoring_card_stack.draw()
-
-        self.season_times = (8, 8, 7, 6)
         assert render_mode is None or render_mode in self.metadata["render_modes"]
         self.render_mode = render_mode
 

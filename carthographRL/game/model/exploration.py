@@ -1,17 +1,20 @@
 from typing import List, Tuple
 from enum import Enum
+from dataclasses import dataclass
 
 import numpy as np
 
 from .general import Card, Terrains
 
 
-class ExplorationOption(Card):
+@dataclass
+class ExplorationOption:
     coin: bool
     coords: List[Tuple[int, int]]
-    terrain: Terrain
+    terrain: Terrains
 
 
+@dataclass
 class ExplorationCard(Card):
     name: str
     card_id: int
@@ -31,13 +34,16 @@ class MonsterRotation(Enum):
     COUNTER_CLOCKWISE = 2
 
 
+@dataclass
 class MonsterCard(Card):
     name: str
     card_id: int
     position: MonsterCorner
     rotation: MonsterRotation
+    coords: List[Tuple[int, int]]
 
 
+@dataclass
 class RuinCard(Card):
     name: str
     card_id: int
@@ -50,12 +56,12 @@ EXPLORATION_CARDS = [
         time=1,
         options=[
             ExplorationOption(
-                coin=True, coords=[(0, 0), (1, 0), (2, 0)], terrain=Terrain.WATER
+                coin=True, coords=[(0, 0), (1, 0), (2, 0)], terrain=Terrains.WATER
             ),
             ExplorationOption(
                 coin=False,
                 coords=[(0, 2), (1, 1), (1, 2), (2, 0), (2, 1)],
-                terrain=Terrain.WATER,
+                terrain=Terrains.WATER,
             ),
         ],
     ),
@@ -64,11 +70,13 @@ EXPLORATION_CARDS = [
         card_id=108,
         time=1,
         options=[
-            ExplorationOption(coin=True, coords=[(0, 0), (1, 0)], terrain=Terrain.FARM),
+            ExplorationOption(
+                coin=True, coords=[(0, 0), (1, 0)], terrain=Terrains.FARM
+            ),
             ExplorationOption(
                 coin=False,
                 coords=[(0, 1), (1, 0), (1, 1), (1, 2), (2, 1)],
-                terrain=Terrain.FARM,
+                terrain=Terrains.FARM,
             ),
         ],
     ),
@@ -78,12 +86,12 @@ EXPLORATION_CARDS = [
         time=1,
         options=[
             ExplorationOption(
-                coin=True, coords=[(0, 0), (1, 0), (1, 1)], terrain=Terrain.VILLAGE
+                coin=True, coords=[(0, 0), (1, 0), (1, 1)], terrain=Terrains.VILLAGE
             ),
             ExplorationOption(
                 coin=False,
                 coords=[(0, 0), (0, 1), (0, 2), (1, 0), (1, 1)],
-                terrain=Terrain.VILLAGE,
+                terrain=Terrains.VILLAGE,
             ),
         ],
     ),
@@ -93,12 +101,12 @@ EXPLORATION_CARDS = [
         time=1,
         options=[
             ExplorationOption(
-                coin=True, coords=[(0, 0), (1, 1)], terrain=Terrain.FOREST
+                coin=True, coords=[(0, 0), (1, 1)], terrain=Terrains.FOREST
             ),
             ExplorationOption(
                 coin=False,
                 coords=[(0, 0), (1, 0), (1, 1), (2, 1)],
-                terrain=Terrain.FOREST,
+                terrain=Terrains.FOREST,
             ),
         ],
     ),
@@ -110,12 +118,12 @@ EXPLORATION_CARDS = [
             ExplorationOption(
                 coin=False,
                 coords=[(0, 0), (1, 0), (1, 1), (1, 2), (2, 0)],
-                terrain=Terrain.WATER,
+                terrain=Terrains.WATER,
             ),
             ExplorationOption(
                 coin=False,
                 coords=[(0, 0), (1, 0), (1, 1), (1, 2), (2, 0)],
-                terrain=Terrain.FOREST,
+                terrain=Terrains.FOREST,
             ),
         ],
     ),
@@ -127,12 +135,12 @@ EXPLORATION_CARDS = [
             ExplorationOption(
                 coin=False,
                 coords=[(0, 0), (0, 1), (0, 2), (1, 2)],
-                terrain=Terrain.FARM,
+                terrain=Terrains.FARM,
             ),
             ExplorationOption(
                 coin=False,
                 coords=[(0, 0), (0, 1), (0, 2), (1, 2)],
-                terrain=Terrain.FOREST,
+                terrain=Terrains.FOREST,
             ),
         ],
     ),
@@ -144,12 +152,12 @@ EXPLORATION_CARDS = [
             ExplorationOption(
                 coin=False,
                 coords=[(0, 2), (0, 3), (1, 0), (1, 1), (1, 2)],
-                terrain=Terrain.VILLAGE,
+                terrain=Terrains.VILLAGE,
             ),
             ExplorationOption(
                 coin=False,
                 coords=[(0, 2), (0, 3), (1, 0), (1, 1), (1, 2)],
-                terrain=Terrain.FOREST,
+                terrain=Terrains.FOREST,
             ),
         ],
     ),
@@ -161,12 +169,12 @@ EXPLORATION_CARDS = [
             ExplorationOption(
                 coin=False,
                 coords=[(0, 0), (0, 1), (0, 2), (1, 0), (2, 0)],
-                terrain=Terrain.WATER,
+                terrain=Terrains.WATER,
             ),
             ExplorationOption(
                 coin=False,
                 coords=[(0, 0), (0, 1), (0, 2), (1, 0), (2, 0)],
-                terrain=Terrain.FARM,
+                terrain=Terrains.FARM,
             ),
         ],
     ),
@@ -178,12 +186,12 @@ EXPLORATION_CARDS = [
             ExplorationOption(
                 coin=False,
                 coords=[(0, 0), (1, 0), (1, 1), (2, 0)],
-                terrain=Terrain.VILLAGE,
+                terrain=Terrains.VILLAGE,
             ),
             ExplorationOption(
                 coin=False,
                 coords=[(0, 0), (1, 0), (1, 1), (2, 0)],
-                terrain=Terrain.FARM,
+                terrain=Terrains.FARM,
             ),
         ],
     ),
@@ -195,12 +203,12 @@ EXPLORATION_CARDS = [
             ExplorationOption(
                 coin=False,
                 coords=[(0, 0), (0, 1), (0, 2), (0, 3)],
-                terrain=Terrain.VILLAGE,
+                terrain=Terrains.VILLAGE,
             ),
             ExplorationOption(
                 coin=False,
                 coords=[(0, 0), (0, 1), (0, 2), (0, 3)],
-                terrain=Terrain.WATER,
+                terrain=Terrains.WATER,
             ),
         ],
     ),
@@ -209,11 +217,11 @@ EXPLORATION_CARDS = [
         card_id=117,
         time=0,
         options=[
-            ExplorationOption(coin=False, coords=[(0, 0)], terrain=Terrain.FOREST),
-            ExplorationOption(coin=False, coords=[(0, 0)], terrain=Terrain.FARM),
-            ExplorationOption(coin=False, coords=[(0, 0)], terrain=Terrain.VILLAGE),
-            ExplorationOption(coin=False, coords=[(0, 0)], terrain=Terrain.WATER),
-            ExplorationOption(coin=False, coords=[(0, 0)], terrain=Terrain.DEVIL),
+            ExplorationOption(coin=False, coords=[(0, 0)], terrain=Terrains.FOREST),
+            ExplorationOption(coin=False, coords=[(0, 0)], terrain=Terrains.FARM),
+            ExplorationOption(coin=False, coords=[(0, 0)], terrain=Terrains.VILLAGE),
+            ExplorationOption(coin=False, coords=[(0, 0)], terrain=Terrains.WATER),
+            ExplorationOption(coin=False, coords=[(0, 0)], terrain=Terrains.MONSTER),
         ],
     ),
 ]

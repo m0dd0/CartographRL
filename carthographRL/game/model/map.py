@@ -5,7 +5,6 @@ import skimage as ski
 from nptyping import NDArray, Shape, Int, Bool
 
 from .general import InvalidMoveError, Terrains
-from .exploration import ExplorationOption
 
 
 class Map:
@@ -47,7 +46,8 @@ class Map:
         mountain_coords: List[Tuple[int, int]],
         waste_coords: List[Tuple[int, int]],
     ):
-        self.terrain_map = np.full((size, size), Terrains.EMPTY)
+        self.size = size
+        self.terrain_map = np.full((size, size), Terrains.EMPTY.value)
 
         for mountain_coord in mountain_coords:
             self.terrain_map[mountain_coord] = Terrains.MOUNTAIN.value
@@ -76,12 +76,16 @@ class Map:
 
         return True
 
-    def _transform_to_map_coords(
+    def transform_to_map_coords(
         self,
         coords: NDArray[Shape["N, 2"], Int],
         rotation: int,
         position: NDArray[Shape["2"], Int],
+        mirror: bool,
     ) -> NDArray[Shape["N, 2"], Int]:
+        if mirror:
+            coords = np.array([(-x, y) for x, y in coords])
+
         if rotation == 0:
             coords = np.array(coords)
         elif rotation == 1:
@@ -111,36 +115,51 @@ class Map:
 
     def place(
         self,
-        exploration_option: ExplorationOption,
+        coords: NDArray[Shape["N, 2"], Int],
+        terrain: Terrains,
         rotation: int,
         position: Tuple[int, int],
+        mirror: bool,
         on_ruin: bool,
     ):
         coords = self._transform_to_map_coords(
-            np.array(exploration_option.coords), rotation, np.array(position)
+            np.array(coords), rotation, np.array(position)
         )
         self._validate_coords(coords, on_ruin)
-        self.terrain_map[coords] = exploration_option.terrain.value
+        self.terrain_map[coords] = terrain.value
 
     def eval_monsters(self) -> int:
         c = Cluster(np.argwhere(self.terrain_map == Terrains.MONSTER.value), self)
         return len(c.surrounding_coords())
 
-    def is_setable(self, exploration_option: ExplorationOption, on_ruin: bool) -> bool:
+    def is_setable(self, coords, rotation, position, mirror, on_ruin):
+        try:
+            coords = self._transform_to_map_coords(coords, rotation, position, mirror)
+            self._validate_coords(coords, on_ruin)
+            return True
+        except InvalidMoveError:
+            return False
+
+    def setable_options(self, coords, on_ruin):
         for x in range(self.terrain_map.shape[0]):
             for y in range(self.terrain_map.shape[1]):
                 for r in range(4):
-                    try:
-                        coords = self._transform_to_map_coords(
-                            np.array(exploration_option.coords), r, np.array((x, y))
-                        )
-                        self._validate_coords(coords, on_ruin)
-                        return True
-                    except InvalidMoveError:
-                        pass
-        return False
+                    for mirror in [False, True]:
+                        if self.is_setable(coords, r, (x, y), mirror, on_ruin):
+                            yield (coords, r, (x, y), mirror)
 
-    def clusters(self, terrain_type: Terrains) -> List[Cluster]:
+    def is_setable_anywhere(
+        self,
+        coords: NDArray[Shape["N, 2"], Int],
+        on_ruin: bool,
+    ) -> bool:
+        try:
+            next(self.setable_options(coords, on_ruin))
+            return True
+        except StopIteration:
+            return False
+
+    def clusters(self, terrain_type: Terrains) -> List["Cluster"]:
         cluster_map = ski.measure.label(
             self.terrain_map == terrain_type.value, background=False, connectivity=1
         )

@@ -337,38 +337,38 @@ SCORING_CARDS = [
         21,
         "3 Ruhmpunkte für jedes Dorf-Gebiet das an mindestens 3 unterschieldiche Geländearten angrenzt.",
     ),
-    ScoringCard(
-        "Karawanserei",
-        239,
-        TaskType.VILLAGE,
-        karawanserei,
-        16,
-        "1 Ruhmpunkt für jede Zeile und Spalte mit mindestens 1 Feld eines von dir gewählten Dorf-Gebietes.",
-    ),
-    ScoringCard(
-        "Die äußerste Enklave",
-        237,
-        TaskType.VILLAGE,
-        die_aeusserste_enklave,
-        12,
-        "1 Ruhmpunkt für jedes leere Feld, das an ein von dir gewähltes Dorf-Gebiet angrenzt.",
-    ),
-    ScoringCard(
-        "Gnomkolonie",
-        238,
-        TaskType.VILLAGE,
-        gnomkolonie,
-        12,
-        "6 Ruhmpunkte für jedes Dorf-Gebite mit mindestens 1 ausgefüllten Quadrat der größe 2x2.",
-    ),
-    ScoringCard(
-        "Traykloster",
-        236,
-        TaskType.VILLAGE,
-        traykloster,
-        14,
-        "7 Ruhmpunkte für jedes Dorf-Gebiet mit mindestens 1 ausgefüllten Rechteck der größe 1x4 (oder 4x1).",
-    ),
+    # ScoringCard(
+    #     "Karawanserei",
+    #     239,
+    #     TaskType.VILLAGE,
+    #     karawanserei,
+    #     16,
+    #     "1 Ruhmpunkt für jede Zeile und Spalte mit mindestens 1 Feld eines von dir gewählten Dorf-Gebietes.",
+    # ),
+    # ScoringCard(
+    #     "Die äußerste Enklave",
+    #     237,
+    #     TaskType.VILLAGE,
+    #     die_aeusserste_enklave,
+    #     12,
+    #     "1 Ruhmpunkt für jedes leere Feld, das an ein von dir gewähltes Dorf-Gebiet angrenzt.",
+    # ),
+    # ScoringCard(
+    #     "Gnomkolonie",
+    #     238,
+    #     TaskType.VILLAGE,
+    #     gnomkolonie,
+    #     12,
+    #     "6 Ruhmpunkte für jedes Dorf-Gebite mit mindestens 1 ausgefüllten Quadrat der größe 2x2.",
+    # ),
+    # ScoringCard(
+    #     "Traykloster",
+    #     236,
+    #     TaskType.VILLAGE,
+    #     traykloster,
+    #     14,
+    #     "7 Ruhmpunkte für jedes Dorf-Gebiet mit mindestens 1 ausgefüllten Rechteck der größe 1x4 (oder 4x1).",
+    # ),
     ScoringCard(
         "Pfad des Waldes",
         129,
@@ -467,8 +467,8 @@ SCORING_CARDS = [
     ),
 ]
 
-SCORING_CARDS_BY_NAME = {c.name: c for c in SCORING_CARDS}
-SCORING_CARDS_BY_ID = {c.id: c for c in SCORING_CARDS}
+# SCORING_CARDS_BY_NAME = {c.name: c for c in SCORING_CARDS}
+# SCORING_CARDS_BY_ID = {c.id: c for c in SCORING_CARDS}
 
 
 class ScoringDeck(CardDeck):
@@ -481,21 +481,20 @@ class ScoringDeck(CardDeck):
         super().__init__(cards, rng)
 
         if order is None:
-            order = self.rng.shuffle(
-                [
-                    TaskType.VILLAGE,
-                    TaskType.FOREST,
-                    TaskType.WATER_FARM,
-                    TaskType.MOUNTAIN,
-                ]
-            )
+            order = [
+                TaskType.VILLAGE,
+                TaskType.FOREST,
+                TaskType.WATER_FARM,
+                TaskType.GEOMETRY,
+            ]
+            self.rng.shuffle(order)
         assert len(order) == len(set([t.value for t in order])) == 4
         self.order = order
 
     def draw(self) -> List[ScoringCard]:
         scoring_cards = [None, None, None, None]
         for c in self.cards:
-            for i, t in enumerate(order):
+            for i, t in enumerate(self.order):
                 if c.task_type == t and scoring_cards[i] is None:
                     scoring_cards[i] = c
 

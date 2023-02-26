@@ -46,3 +46,9 @@ class CardDeck:
 
 class InvalidMoveError(Exception):
     pass
+
+
+class MonsterMode(Enum):
+    RANDOM = 0
+    SOLO = 1
+    MAX_BORDERS = 2

@@ -15,7 +15,14 @@ setuptools.setup(
     # not specifying versions might result in pip downloading multiple versions
     # of a package in order to solve dependencies
     # therfore it might be useful to fix the versions someday
-    install_requires=["numpy", "scikit-image", "gymnasium", "nptyping", "matplotlib"],
+    install_requires=[
+        "numpy",
+        "scikit-image",
+        "gymnasium",
+        "nptyping",
+        "matplotlib",
+        "pygame",
+    ],
     extras_require={"dev": ["black", "pylint", "jupyter"]},
     include_package_data=True,
     use_scm_version=True,

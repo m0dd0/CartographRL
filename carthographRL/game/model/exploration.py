@@ -1,10 +1,8 @@
 """Exploration cards, monster cards amd ruin cards."""
 
-from typing import List, Tuple
+from typing import List, Tuple, FrozenSet
 from enum import Enum
 from dataclasses import dataclass
-
-import numpy as np
 
 from .general import Card, Terrains
 
@@ -12,7 +10,7 @@ from .general import Card, Terrains
 @dataclass
 class ExplorationOption:
     coin: bool  # whether the option gives a coin
-    coords: List[Tuple[int, int]]  # coordinates of the fields
+    coords: FrozenSet[Tuple[int, int]]  # coordinates of the fields
     terrain: Terrains  # terrain of the fields
 
 
@@ -40,9 +38,9 @@ class MonsterRotation(Enum):
 class MonsterCard(Card):
     name: str  # name of the card
     card_id: int  # id of the card
-    position: MonsterCorner  # inital position of the monster when playing solo
+    corner: MonsterCorner  # inital corner of the monster when playing solo
     rotation: MonsterRotation  # rotation of the monster when playing solo
-    coords: List[Tuple[int, int]]  # coordinates of the fields
+    coords: FrozenSet[Tuple[int, int]]  # coordinates of the fields
 
 
 @dataclass
@@ -59,12 +57,12 @@ EXPLORATION_CARDS = [
         options=[
             ExplorationOption(
                 coin=True,
-                coords=np.array([(0, 0), (1, 0), (2, 0)]),
+                coords=frozenset([(0, 0), (1, 0), (2, 0)]),
                 terrain=Terrains.WATER,
             ),
             ExplorationOption(
                 coin=False,
-                coords=np.array([(0, 2), (1, 1), (1, 2), (2, 0), (2, 1)]),
+                coords=frozenset([(0, 2), (1, 1), (1, 2), (2, 0), (2, 1)]),
                 terrain=Terrains.WATER,
             ),
         ],
@@ -75,11 +73,11 @@ EXPLORATION_CARDS = [
         time=1,
         options=[
             ExplorationOption(
-                coin=True, coords=np.array([(0, 0), (1, 0)]), terrain=Terrains.FARM
+                coin=True, coords=frozenset([(0, 0), (1, 0)]), terrain=Terrains.FARM
             ),
             ExplorationOption(
                 coin=False,
-                coords=np.array([(0, 1), (1, 0), (1, 1), (1, 2), (2, 1)]),
+                coords=frozenset([(0, 1), (1, 0), (1, 1), (1, 2), (2, 1)]),
                 terrain=Terrains.FARM,
             ),
         ],
@@ -90,11 +88,13 @@ EXPLORATION_CARDS = [
         time=1,
         options=[
             ExplorationOption(
-                coin=True, coords=np.array([(0, 0), (1, 0), (1, 1)]), terrain=Terrains.VILLAGE
+                coin=True,
+                coords=frozenset([(0, 0), (1, 0), (1, 1)]),
+                terrain=Terrains.VILLAGE,
             ),
             ExplorationOption(
                 coin=False,
-                coords=np.array([(0, 0), (0, 1), (0, 2), (1, 0), (1, 1)]),
+                coords=frozenset([(0, 0), (0, 1), (0, 2), (1, 0), (1, 1)]),
                 terrain=Terrains.VILLAGE,
             ),
         ],
@@ -105,11 +105,11 @@ EXPLORATION_CARDS = [
         time=1,
         options=[
             ExplorationOption(
-                coin=True, coords=np.array([(0, 0), (1, 1)]), terrain=Terrains.FOREST
+                coin=True, coords=frozenset([(0, 0), (1, 1)]), terrain=Terrains.FOREST
             ),
             ExplorationOption(
                 coin=False,
-                coords=np.array([(0, 0), (1, 0), (1, 1), (2, 1)]),
+                coords=frozenset([(0, 0), (1, 0), (1, 1), (2, 1)]),
                 terrain=Terrains.FOREST,
             ),
         ],
@@ -121,12 +121,12 @@ EXPLORATION_CARDS = [
         options=[
             ExplorationOption(
                 coin=False,
-                coords=np.array([(0, 0), (1, 0), (1, 1), (1, 2), (2, 0)]),
+                coords=frozenset([(0, 0), (1, 0), (1, 1), (1, 2), (2, 0)]),
                 terrain=Terrains.WATER,
             ),
             ExplorationOption(
                 coin=False,
-                coords=np.array([(0, 0), (1, 0), (1, 1), (1, 2), (2, 0)]),
+                coords=frozenset([(0, 0), (1, 0), (1, 1), (1, 2), (2, 0)]),
                 terrain=Terrains.FOREST,
             ),
         ],
@@ -138,12 +138,12 @@ EXPLORATION_CARDS = [
         options=[
             ExplorationOption(
                 coin=False,
-                coords=np.array([(0, 0), (0, 1), (0, 2), (1, 2)]),
+                coords=frozenset([(0, 0), (0, 1), (0, 2), (1, 2)]),
                 terrain=Terrains.FARM,
             ),
             ExplorationOption(
                 coin=False,
-                coords=np.array([(0, 0), (0, 1), (0, 2), (1, 2)]),
+                coords=frozenset([(0, 0), (0, 1), (0, 2), (1, 2)]),
                 terrain=Terrains.FOREST,
             ),
         ],
@@ -155,12 +155,12 @@ EXPLORATION_CARDS = [
         options=[
             ExplorationOption(
                 coin=False,
-                coords=np.array([(0, 2), (0, 3), (1, 0), (1, 1), (1, 2)]),
+                coords=frozenset([(0, 2), (0, 3), (1, 0), (1, 1), (1, 2)]),
                 terrain=Terrains.VILLAGE,
             ),
             ExplorationOption(
                 coin=False,
-                coords=np.array([(0, 2), (0, 3), (1, 0), (1, 1), (1, 2)]),
+                coords=frozenset([(0, 2), (0, 3), (1, 0), (1, 1), (1, 2)]),
                 terrain=Terrains.FOREST,
             ),
         ],
@@ -172,12 +172,12 @@ EXPLORATION_CARDS = [
         options=[
             ExplorationOption(
                 coin=False,
-                coords=np.array([(0, 0), (0, 1), (0, 2), (1, 0), (2, 0)]),
+                coords=frozenset([(0, 0), (0, 1), (0, 2), (1, 0), (2, 0)]),
                 terrain=Terrains.WATER,
             ),
             ExplorationOption(
                 coin=False,
-                coords=np.array([(0, 0), (0, 1), (0, 2), (1, 0), (2, 0)]),
+                coords=frozenset([(0, 0), (0, 1), (0, 2), (1, 0), (2, 0)]),
                 terrain=Terrains.FARM,
             ),
         ],
@@ -189,12 +189,12 @@ EXPLORATION_CARDS = [
         options=[
             ExplorationOption(
                 coin=False,
-                coords=np.array([(0, 0), (1, 0), (1, 1), (2, 0)]),
+                coords=frozenset([(0, 0), (1, 0), (1, 1), (2, 0)]),
                 terrain=Terrains.VILLAGE,
             ),
             ExplorationOption(
                 coin=False,
-                coords=np.array([(0, 0), (1, 0), (1, 1), (2, 0)]),
+                coords=frozenset([(0, 0), (1, 0), (1, 1), (2, 0)]),
                 terrain=Terrains.FARM,
             ),
         ],
@@ -206,12 +206,12 @@ EXPLORATION_CARDS = [
         options=[
             ExplorationOption(
                 coin=False,
-                coords=np.array([(0, 0), (0, 1), (0, 2), (0, 3)]),
+                coords=frozenset([(0, 0), (0, 1), (0, 2), (0, 3)]),
                 terrain=Terrains.VILLAGE,
             ),
             ExplorationOption(
                 coin=False,
-                coords=np.array([(0, 0), (0, 1), (0, 2), (0, 3)]),
+                coords=frozenset([(0, 0), (0, 1), (0, 2), (0, 3)]),
                 terrain=Terrains.WATER,
             ),
         ],
@@ -221,11 +221,21 @@ EXPLORATION_CARDS = [
         card_id=117,
         time=0,
         options=[
-            ExplorationOption(coin=False, coords=np.array([(0, 0)]), terrain=Terrains.FOREST),
-            ExplorationOption(coin=False, coords=np.array([(0, 0)]), terrain=Terrains.FARM),
-            ExplorationOption(coin=False, coords=np.array([(0, 0)]), terrain=Terrains.VILLAGE),
-            ExplorationOption(coin=False, coords=np.array([(0, 0)]), terrain=Terrains.WATER),
-            ExplorationOption(coin=False, coords=np.array([(0, 0)]), terrain=Terrains.MONSTER),
+            ExplorationOption(
+                coin=False, coords=frozenset([(0, 0)]), terrain=Terrains.FOREST
+            ),
+            ExplorationOption(
+                coin=False, coords=frozenset([(0, 0)]), terrain=Terrains.FARM
+            ),
+            ExplorationOption(
+                coin=False, coords=frozenset([(0, 0)]), terrain=Terrains.VILLAGE
+            ),
+            ExplorationOption(
+                coin=False, coords=frozenset([(0, 0)]), terrain=Terrains.WATER
+            ),
+            ExplorationOption(
+                coin=False, coords=frozenset([(0, 0)]), terrain=Terrains.MONSTER
+            ),
         ],
     ),
 ]
@@ -234,30 +244,30 @@ MONSTER_CARDS = [
     MonsterCard(
         name="Grottenschratüberfall",
         card_id=102,
-        position=MonsterCorner.TOP_RIGHT,
+        corner=MonsterCorner.TOP_RIGHT,
         rotation=MonsterRotation.CLOCKWISE,
-        coords=np.array([(0, 0), (0, 2), (1, 0), (1, 2)]),
+        coords=frozenset([(0, 0), (0, 2), (1, 0), (1, 2)]),
     ),
     MonsterCard(
         name="Goblinattacke",
         card_id=101,
-        position=MonsterCorner.BOTTOM_LEFT,
+        corner=MonsterCorner.BOTTOM_LEFT,
         rotation=MonsterRotation.COUNTER_CLOCKWISE,
-        coords=np.array([(0, 0), (1, 1), (2, 2)]),
+        coords=frozenset([(0, 0), (1, 1), (2, 2)]),
     ),
     MonsterCard(
         name="Koboldansturm",
         card_id=103,
-        position=MonsterCorner.BOTTOM_LEFT,
+        corner=MonsterCorner.BOTTOM_LEFT,
         rotation=MonsterRotation.CLOCKWISE,
-        coords=np.array([(0, 0), (1, 0), (1, 1), (2, 0)]),
+        coords=frozenset([(0, 0), (1, 0), (1, 1), (2, 0)]),
     ),
     MonsterCard(
         name="Gnollangriff",
         card_id=104,
-        position=MonsterCorner.TOP_LEFT,
+        corner=MonsterCorner.TOP_LEFT,
         rotation=MonsterRotation.COUNTER_CLOCKWISE,
-        coords=np.array([(0, 0), (0, 1), (1, 0), (2, 0), (2, 1)]),
+        coords=frozenset([(0, 0), (0, 1), (1, 0), (2, 0), (2, 1)]),
     ),
 ]
 

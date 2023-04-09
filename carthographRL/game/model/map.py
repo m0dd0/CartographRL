@@ -214,7 +214,7 @@ class Map:
             return False
 
     def eval_monsters(self) -> int:
-        """Eavluatess the number of"""
+        """Gets the number of empty fields which are adjacent to a monster."""
         cluster = Cluster(np.argwhere(self.terrain_map == Terrains.MONSTER.value), self)
         return sum(t == Terrains.EMPTY for t in cluster.surrounding_terrains())
 
@@ -228,6 +228,14 @@ class Map:
         return sum([Cluster(c, self).is_surrounded() for c in coords])
 
     def clusters(self, terrain_type: Terrains) -> List["Cluster"]:
+        """Returns all clusters of a terrain type.
+
+        Args:
+            terrain_type (Terrains): The terrain type.
+
+        Returns:
+            List[Cluster]: The clusters.
+        """
         cluster_map = ski.measure.label(
             self.terrain_map == terrain_type.value, background=False, connectivity=1
         )

@@ -1,3 +1,5 @@
+""" Contains the scoring cards and their evaluation functions. """
+
 from enum import Enum
 from typing import List, Callable
 from dataclasses import dataclass

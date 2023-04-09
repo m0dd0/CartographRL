@@ -1,25 +1,25 @@
+"""Exploration cards, monster cards amd ruin cards."""
+
 from typing import List, Tuple
 from enum import Enum
 from dataclasses import dataclass
-
-import numpy as np
 
 from .general import Card, Terrains
 
 
 @dataclass
 class ExplorationOption:
-    coin: bool
-    coords: List[Tuple[int, int]]
-    terrain: Terrains
+    coin: bool  # whether the option gives a coin
+    coords: List[Tuple[int, int]]  # coordinates of the fields
+    terrain: Terrains  # terrain of the fields
 
 
 @dataclass
 class ExplorationCard(Card):
-    name: str
-    card_id: int
-    time: int
-    options: List[ExplorationOption]
+    name: str  # name of the card
+    card_id: int  # id of the card
+    time: int  # game progress after playing the card
+    options: List[ExplorationOption]  # options of the card
 
 
 class MonsterCorner(Enum):
@@ -36,17 +36,17 @@ class MonsterRotation(Enum):
 
 @dataclass
 class MonsterCard(Card):
-    name: str
-    card_id: int
-    position: MonsterCorner
-    rotation: MonsterRotation
-    coords: List[Tuple[int, int]]
+    name: str  # name of the card
+    card_id: int  # id of the card
+    position: MonsterCorner  # inital position of the monster when playing solo
+    rotation: MonsterRotation  # rotation of the monster when playing solo
+    coords: List[Tuple[int, int]]  # coordinates of the fields
 
 
 @dataclass
 class RuinCard(Card):
-    name: str
-    card_id: int
+    name: str  # name of the card
+    card_id: int  # id of the card
 
 
 EXPLORATION_CARDS = [

@@ -152,6 +152,47 @@ class CarthographersGame:
         elif self.monster_mode == "max_borders":
             self._set_monster_max_borders(shape_coords)
 
+    def _update_season(self):
+        """Updates the season and resets the time if the season has ended.
+        Also updates the season stats.
+        """
+        if self.time < self.season_times[self.season]:
+            return
+
+        self.season_stats[self.season]["coins_from_options"] = self.coins_from_options
+        self.season_stats[self.season][
+            "surrounded_mountains"
+        ] = self.map_sheet.surrounded_mountains()
+        self.season_stats[self.season][
+            "monster_discount"
+        ] = self.map_sheet.eval_monsters()
+        self.season_stats[self.season]["task_A_score"] = self.scoring_cards[
+            self.season
+        ].evaluate(self.map_sheet)
+        self.season_stats[self.season]["task_B_score"] = self.scoring_cards[
+            (self.season + 1) % len(self.season_times)
+        ].evaluate(self.map_sheet)
+
+        self.season += 1
+        self.time = 0
+
+    def _draw_exploration_card(self):
+        """Draws a new exploration card. If the drawn card is a ruin card, the next area must be placed on a ruin.
+        If the drawn card is a monster card, the monster is placed on the map sheet.
+        Cards are drawn until an exploration card is drawn.
+        """
+        self.exploration_card = None
+        self.ruin = False
+
+        while self.exploration_card is None:
+            drawn_card = self.exploration_deck.draw()
+            if isinstance(drawn_card, RuinCard):
+                self.ruin = True
+            elif isinstance(drawn_card, MonsterCard):
+                self._set_monster(drawn_card)
+            elif isinstance(drawn_card, ExplorationCard):
+                self.exploration_card = drawn_card
+
     def play(
         self,
         i_option: int,
@@ -212,36 +253,7 @@ class CarthographersGame:
 
         # advance the game and add evaluate season if season has ended
         self.time += self.exploration_card.time
-
-        if self.time >= self.season_times[self.season]:
-            self.season_stats[self.season][
-                "coins_from_options"
-            ] = self.coins_from_options
-            self.season_stats[self.season][
-                "surrounded_mountains"
-            ] = self.map_sheet.surrounded_mountains()
-            self.season_stats[self.season][
-                "monster_discount"
-            ] = self.map_sheet.eval_monsters()
-            self.season_stats[self.season]["task_A_score"] = self.scoring_cards[
-                self.season
-            ].evaluate(self.map_sheet)
-            self.season_stats[self.season]["task_B_score"] = self.scoring_cards[
-                (self.season + 1) % len(self.season_times)
-            ].evaluate(self.map_sheet)
-
-            self.season += 1
-            self.time = 0
+        self._update_season()
 
         # draw new exploration card
-        self.exploration_card = None
-        self.ruin = False
-
-        while self.exploration_card is None:
-            drawn_card = self.exploration_deck.draw()
-            if isinstance(drawn_card, RuinCard):
-                self.ruin = True
-            elif isinstance(drawn_card, MonsterCard):
-                self._set_monster(drawn_card)
-            elif isinstance(drawn_card, ExplorationCard):
-                self.exploration_card = drawn_card
+        self._draw_exploration_card()

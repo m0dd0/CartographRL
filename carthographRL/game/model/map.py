@@ -362,13 +362,11 @@ class Cluster:
         """Returns whether the cluster is completely on the map, i.e. valid coordinates.
 
         Returns:
-            bool: Whether the cluster is outside.
+            bool: Whether the cluster is on map.
         """
         return all(
-            coord[0] < 0
-            or coord[0] >= self.terrain_map.shape[0]
-            or coord[1] < 0
-            or coord[1] >= self.terrain_map.shape[1]
+            0 <= coord[0] < self._map_sheet.terrain_map.shape[0]
+            and 0 <= coord[1] < self._map_sheet.terrain_map.shape[1]
             for coord in self.coords
         )
 

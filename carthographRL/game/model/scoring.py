@@ -3,6 +3,7 @@
 from enum import Enum
 from typing import List, Callable
 from dataclasses import dataclass
+from copy import copy
 
 import numpy as np
 
@@ -77,8 +78,8 @@ def karawanserei(map_sheet: Map) -> int:
 
     scores = []
     for c in clusters:
-        n_rows = np.max(c.coords[:, 0]) - np.min(c.coords[:, 0]) + 1
-        n_cols = np.max(c.coords[:, 1]) - np.min(c.coords[:, 1]) + 1
+        n_rows = max([co[1] for co in c.coords]) - min([co[0] for co in c.coords]) + 1
+        n_cols = max([co[1] for co in c.coords]) - min([co[0] for co in c.coords]) + 1
 
         scores.append(n_rows + n_cols)
 
@@ -88,11 +89,11 @@ def karawanserei(map_sheet: Map) -> int:
 def die_aeusserste_enklave(map_sheet: Map) -> int:
     """1 Ruhmpunkt für jedes leere Feld, das an ein von dir gewähltes Dorf-Gebiet angrenzt."""
 
-    clusters = map_sheet.clusters(Terrains.EMPTY)
+    clusters = map_sheet.clusters(Terrains.VILLAGE)
 
     scores = []
     for c in clusters:
-        scores.append(len(c.surrounding_values() == Terrains.VILLAGE.value))
+        scores.append(sum(t == Terrains.EMPTY.value for t in c.surrounding_terrains()))
 
     return max(scores) if scores else 0
 
@@ -102,15 +103,15 @@ def gnomkolonie(map_sheet: Map) -> int:
 
     clusters = map_sheet.clusters(Terrains.VILLAGE)
 
-    shape = np.array([[0, 0], [0, 1], [1, 0], [1, 1]])
+    offsets = np.array([[0, 0], [0, 1], [1, 0], [1, 1]])
 
     score = 0
     for c in clusters:
-        cluster_coords_set = set([tuple(idx) for idx in c.coords])
         for pivot_coord in c.coords:
-            needed_coords = set([tuple(pivot_coord + s) for s in shape])
-
-            if needed_coords <= cluster_coords_set:
+            pivot_coord = np.array(pivot_coord)
+            needed_coords = pivot_coord + offsets
+            needed_coords = {tuple(c) for c in needed_coords}
+            if needed_coords.issubset(c.coords):
                 score += 6
                 break
 
@@ -127,12 +128,15 @@ def traykloster(map_sheet: Map) -> int:
 
     score = 0
     for c in clusters:
-        cluster_coords_set = set([tuple(idx) for idx in c.coords])
         for pivot_coord in c.coords:
-            if (
-                set([tuple(pivot_coord + s) for s in shape_1]) <= cluster_coords_set
-                or set([tuple(pivot_coord + s) for s in shape_2]) <= cluster_coords_set
-            ):
+            pivot_coord = np.array(pivot_coord)
+            needed_coords_sets = []
+            for shape in [shape_1, shape_2]:
+                needed_coords = pivot_coord + shape
+                needed_coords = {tuple(c) for c in needed_coords}
+                needed_coords_sets.append(needed_coords)
+
+            if any(s.issubset(c.coords) for s in needed_coords_sets):
                 score += 7
                 break
 
@@ -179,8 +183,9 @@ def duesterwald(map_sheet: Map) -> int:
     """1 Ruhmpunkt für jedes Wald-Feld das an 4 ausgefüllte Felder (und/oder den Rand) angrenzt."""
 
     score = 0
-    for c in np.argwhere(map_sheet.terrain_map == Terrains.FOREST.value):
-        if map_sheet.is_surrounded(c):
+    for coord in np.argwhere(map_sheet.terrain_map == Terrains.FOREST.value):
+        cluster = Cluster(frozenset([tuple(coord)]), map_sheet)
+        if cluster.is_surrounded():
             score += 1
 
     return score
@@ -191,11 +196,11 @@ def goldener_kornspeicher(map_sheet: Map) -> int:
 
     score = 0
     for water_coord in np.argwhere(map_sheet.terrain_map == Terrains.WATER.value):
-        c = Cluster([water_coord], map_sheet)
+        c = Cluster(frozenset([tuple(water_coord)]), map_sheet)
         if any(surr in map_sheet.ruin_coords for surr in c.surrounding_coords()):
             score += 1
 
-    for field_coord in np.argwhere(map_sheet.terrain_map == Terrains.FIELD.value):
+    for field_coord in np.argwhere(map_sheet.terrain_map == Terrains.FARM.value):
         if field_coord in map_sheet.ruin_coords:
             score += 3
 
@@ -209,12 +214,12 @@ def tal_der_magier(map_sheet: Map) -> int:
 
     score = 0
     for water_coord in np.argwhere(map_sheet.terrain_map == Terrains.WATER.value):
-        c = Cluster([water_coord], map_sheet)
+        c = Cluster(frozenset([tuple(water_coord)]), map_sheet)
         if any(surr in mountain_coords for surr in c.surrounding_coords()):
             score += 2
 
     for field_coord in np.argwhere(map_sheet.terrain_map == Terrains.FIELD.value):
-        c = Cluster([field_coord], map_sheet)
+        c = Cluster(frozenset([tuple(field_coord)]), map_sheet)
         if any(surr in mountain_coords for surr in c.surrounding_coords()):
             score += 1
 
@@ -229,12 +234,12 @@ def bewaesserungskanal(map_sheet: Map) -> int:
 
     score = 0
     for water_coord in water_coords:
-        c = Cluster([water_coord], map_sheet)
+        c = Cluster(frozenset([tuple(water_coord)]), map_sheet)
         if any(surr in field_coords for surr in c.surrounding_coords()):
             score += 1
 
     for field_coord in field_coords:
-        c = Cluster([field_coord], map_sheet)
+        c = Cluster(frozenset([tuple(field_coord)]), map_sheet)
         if any(surr in water_coords for surr in c.surrounding_coords()):
             score += 1
 
@@ -244,12 +249,12 @@ def bewaesserungskanal(map_sheet: Map) -> int:
 def ausgedehnte_straende(map_sheet: Map) -> int:
     """3 Ruhmpunkte für für jedes Acker-Gebiet, das weder an den Rand noch an 1 oder mehrere Wasser-Felder grenzt. 3 Ruhmpunkte für jedes Wasser-Gebiet, das weder an den Rand noch an 1 oder mehrere Acker-Felder grenzt."""
     score = 0
-    for c in map_sheet.clusters(Terrains.FIELD):
+    for c in map_sheet.clusters(Terrains.FARM):
         if Terrains.WATER.value not in c.surrounding_terrains() and not c.on_edge():
             score += 3
 
     for c in map_sheet.clusters(Terrains.WATER):
-        if Terrains.FIELD.value not in c.surrounding_terrains() and not c.on_edge():
+        if Terrains.FARM.value not in c.surrounding_terrains() and not c.on_edge():
             score += 3
 
     return score
@@ -286,7 +291,8 @@ def die_kessel(map_sheet: Map) -> int:
 
     score = 0
     for empty_coord in np.argwhere(map_sheet.terrain_map == Terrains.EMPTY.value):
-        if map_sheet.is_surrounded(empty_coord):
+        cluster = Cluster(frozenset([tuple(empty_coord)]), map_sheet)
+        if cluster.is_surrounded():
             score += 1
 
     return score

@@ -3,6 +3,19 @@ from matplotlib import pyplot as plt
 from .game import CarthographersGame
 
 
+class View(abc.ABC):
+    def __init__(self):
+        pass
+
+    @abc.abstractmethod
+    def render(self, game: CarthographersGame):
+        pass
+
+    @abc.abstractmethod
+    def get_input(self) -> Tuple[bool, int, Tuple[int, int], int, bool, bool]:
+        pass
+
+
 class AsciiRenderer:
     def __init__(self):
         pass
@@ -34,3 +47,11 @@ class MplRenderer:
     def __call__(self, game: CarthographersGame):
         plt.matshow(game.map_sheet.terrain_map)
         plt.show()
+
+
+class PygameRenderer:
+    def __init__(self):
+        pass
+
+    def render(self, game: CarthographersGame, mouse_position):
+        pass

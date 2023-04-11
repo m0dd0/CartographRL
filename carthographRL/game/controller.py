@@ -1,19 +1,18 @@
-# import pygame as pg
+from .model import CarthographersGame
+from .view.base import View
 
 
 class Controller:
-    def __init__(self, model, view):
+    def __init__(self, model: CarthographersGame, view: View):
         self.model = model
         self.view = view
 
     def run(self):
-        while not self.model.finished:
-            current_input = self.view.get_input()
-            if current_input is not None:
-                self.model.play(current_input)
-                self.view.render(self.model)
-            # self.view.get_imput()
-            # pg.display.update()
+        while not self.view.closed:
+            self.view.render(self.model)
+            action = self.view.get_action()
+            if action is not None:
+                self.model.play(*action)
 
 
 # pg.init()

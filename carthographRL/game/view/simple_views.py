@@ -1,24 +1,12 @@
 from matplotlib import pyplot as plt
 
-from .game import CarthographersGame
+from ..model import CarthographersGame
+from .base import View
 
 
-class View(abc.ABC):
+class AsciiView(View):
     def __init__(self):
-        pass
-
-    @abc.abstractmethod
-    def render(self, game: CarthographersGame):
-        pass
-
-    @abc.abstractmethod
-    def get_input(self) -> Tuple[bool, int, Tuple[int, int], int, bool, bool]:
-        pass
-
-
-class AsciiRenderer:
-    def __init__(self):
-        pass
+        raise NotImplementedError()
 
     def _render_scoring_card(self, card):
         return f"[{card.task_type.name}] {card.name}: {card.description}"
@@ -27,7 +15,7 @@ class AsciiRenderer:
         output = ""
         output += f"{card.name} [{card.time}] (id: {card.id})\n"
 
-    def __call__(self, game: CarthographersGame):
+    def render(self, game: CarthographersGame):
         output = ""
         output += f"Task A: {self._render_scoring_card(game.scoring_cards[0])}\n"
         output += f"Task B: {self._render_scoring_card(game.scoring_cards[1])}\n"
@@ -39,19 +27,17 @@ class AsciiRenderer:
         output += "\n"
         output += f"Exploration card: {game.exploration_card.name}\n"
 
-
-class MplRenderer:
-    def __init__(self):
+    def get_action(self):
         pass
 
-    def __call__(self, game: CarthographersGame):
+
+class MplView(View):
+    def __init__(self):
+        raise NotImplementedError()
+
+    def render(self, game: CarthographersGame):
         plt.matshow(game.map_sheet.terrain_map)
         plt.show()
 
-
-class PygameRenderer:
-    def __init__(self):
-        pass
-
-    def render(self, game: CarthographersGame, mouse_position):
+    def get_action(self):
         pass

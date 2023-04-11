@@ -1,6 +1,6 @@
 """ Representation of the game map. """
 
-from typing import List, Tuple, Iterator, FrozenSet
+from typing import List, Tuple, Generator, FrozenSet
 
 import numpy as np
 import skimage as ski
@@ -189,7 +189,7 @@ class Map:
 
     def setable_options(
         self, shape_coords: FrozenSet[Tuple[int, int]], on_ruin: bool
-    ) -> Iterator[int, Tuple[int, int], bool]:
+    ) -> Generator[int, Tuple[int, int], bool]:
         """Returns all valid options which result in a valid move.
         Note that some options may lead to the same move.
 

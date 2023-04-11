@@ -193,6 +193,17 @@ class CarthographersGame:
             elif isinstance(drawn_card, ExplorationCard):
                 self.exploration_card = drawn_card
 
+    def setable_option_exists(self) -> bool:
+        """Returns whether there is at least one setable option for the current exploration card.
+
+        Returns:
+            bool: True if there is at least one setable option, False otherwise.
+        """
+        return any(
+            self.map_sheet.is_setable_anywhere(opt, self.ruin)
+            for opt in self.exploration_card.options
+        )
+
     def play(
         self,
         i_option: int,
@@ -222,10 +233,7 @@ class CarthographersGame:
         if len(self.exploration_card.options) < i_option:
             raise InvalidMoveError("Invalid option")
 
-        if single_field is not None and any(
-            self.map_sheet.is_setable_anywhere(opt, self.ruin)
-            for opt in self.exploration_card.options
-        ):
+        if single_field is not None and self.setable_option_exists():
             raise InvalidMoveError("There is a possibility to set one of the options.")
 
         # get exploration option

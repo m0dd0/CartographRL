@@ -288,6 +288,14 @@ class Map:
             }
         )
 
+    def to_list(self) -> List[List[Terrains]]:
+        """Returns a list representation of the map.
+
+        Returns:
+            List[List[Terrains]]: The list representation.
+        """
+        return [[Terrains(t) for t in row] for row in self.terrain_map]
+
     # def __getitem__(self, key):
     #     return self.terrain_map[key]
 

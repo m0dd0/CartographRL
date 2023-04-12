@@ -13,9 +13,11 @@ from .base import View
 # use a seperate sprite for everything (every field is a sprite, the grid is a sprite, the background is a sprite, the options are a sprite, the elements in the score table are sprites, ...)
 # - most flexible
 # - can use pointcollide to check if mouse is in a sprite for all elements
+# - we need to keep track of all sprites and delete/update/add them when necessary
 # use a seperate surface for everything (every field is a surface, the grid is a surface, the background is a surface, the options are a surface, the elements in the score table are surfaces, ...)
 # - all (point)collision management must be done manually
 # use view sprites whose surface consistes of different more elementary surfaces (e.g. a map sprite whose surface consists of a background surface, a grid surface, and a surface for each field)
+# - only areas which might be clicked need to be checked for collision so we need only sprites for these few areas
 
 # it is easier to obtain the map coordinates of the mouse using a grid sprite than iterating over all fields (sprites) and checking if the mouse is in the field (sprite) rect
 
@@ -92,29 +94,29 @@ class GenericGridSprite(pygame.sprite.Sprite):
         print(x_coord, y_coord)
         return x_coord, y_coord
 
-    def arange_sprites(self, data: Iterable[Iterable[pygame.sprite.Sprite]]):
-        assert len(data) == self._n_rows
-        for i_row, row in enumerate(data):
-            assert len(row) == self._n_cols
-            for i_col, cell in enumerate(row):
-                if cell is None:
-                    continue
-                self.arange_sprite(cell, (i_col, i_row))
+        # def arange_sprites(self, data: Iterable[Iterable[pygame.sprite.Sprite]]):
+        #     assert len(data) == self._n_rows
+        #     for i_row, row in enumerate(data):
+        #         assert len(row) == self._n_cols
+        #         for i_col, cell in enumerate(row):
+        #             if cell is None:
+        #                 continue
+        #             self.arange_sprite(cell, (i_col, i_row))
 
-    def arange_surfaces(self, data: Iterable[Iterable[pygame.Surface]]):
-        assert len(data) == self._n_rows
-        for i_row, row in enumerate(data):
-            assert len(row) == self._n_cols
-            for i_col, cell in enumerate(row):
-                if cell is None:
-                    continue
-                self.arange_surface(cell, (i_col, i_row))
+        # def arange_surfaces(self, data: Iterable[Iterable[pygame.Surface]]):
+        #     assert len(data) == self._n_rows
+        #     for i_row, row in enumerate(data):
+        #         assert len(row) == self._n_cols
+        #         for i_col, cell in enumerate(row):
+        #             if cell is None:
+        #                 continue
+        #             self.arange_surface(cell, (i_col, i_row))
 
-    def arange_sprite(self, sprite: pygame.sprite.Sprite, coords: Tuple[int, int]):
-        sprite.rect.x = self._x_borders[coords[0]]
-        sprite.rect.y = self._y_borders[coords[1]]
+        # def arange_sprite(self, sprite: pygame.sprite.Sprite, coords: Tuple[int, int]):
+        #     sprite.rect.x = self._x_borders[coords[0]]
+        #     sprite.rect.y = self._y_borders[coords[1]]
 
-    def arange_surface(self, surface: pygame.Surface, coords: Tuple[int, int]):
+        # def arange_surface(self, surface: pygame.Surface, coords: Tuple[int, int]):
         self.image.blit(
             surface, (self._x_borders[coords[0]], self._y_borders[coords[1]])
         )

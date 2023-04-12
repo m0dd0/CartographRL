@@ -7,8 +7,6 @@ class Controller:
         self.model = model
         self.view = view
 
-        self.view.adjust_to_game(self.model)
-
     def run(self):
         while not self.view.closed:
             action = self.view.render(self.model)

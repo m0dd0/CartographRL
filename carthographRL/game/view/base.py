@@ -21,10 +21,6 @@ class View(ABC):
     def cleanup(self):
         pass
 
-    @abstractmethod
-    def adjust_to_game(self, game: CarthographersGame):
-        pass
-
     @property
     def closed(self):
         return self._closed

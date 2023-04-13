@@ -4,7 +4,6 @@ import pygame
 
 from ..model import CarthographersGame
 from ..model.general import Terrains
-from ..model.map import Map
 from .base import View
 
 ### DESIGN DECISIONS ###
@@ -17,13 +16,17 @@ from .base import View
 # - all (point)collision management must be done manually
 # use view sprites whose surface consistes of different more elementary surfaces (e.g. a map sprite whose surface consists of a background surface, a grid surface, and a surface for each field)
 # - only areas which might be clicked need to be checked for collision so we need only sprites for these few areas
-# --> use sprite for map, score table, each option, info field, next button
+# --> use sprite for non overlapping areas: map, score table, each option, info field, next button
 
-# the visuliazetion option can be passed as arguments to the constructor of the view or used as a global variable
-# --> use global variable as the amunt of arguments would be too large
-# we first hardcode all values and later we can make them configurable as we do not know yet where it makes sense to make them configurable
+# the visuliazetion option can be passed as arguments to the constructor of the view or used as a global variable or a class variable
+# --> use class variabels for sprites and surfaces
 
 # sprites contain only the information necessary to draw themselfs, they do not contain any information about their position and no information about the game state
+
+# surfaces are the most elementary pygame objects, sprites are built from multiple surfaces
+# --> create a subclass for all used surfaces, to change the appearance of the game only the surface classes need to be changed
+# these surface subclasses encapsulate the backgound, size and fill of the surface which are otherwise a lot of arguments to the constructor of the surface
+###
 
 FRAME_RATE = 30
 DISPLAY_SIZE = (800, 400)
@@ -69,17 +72,16 @@ TERRAIN_FILLS = {
 #     return surf
 
 
-# class TerrainSurf(pygame.surf.Surface):
-#     TERRAIN
-
-#     def __init__(self, terrain: Terrains, size: Tuple[int, int]) -> None:
-#         super().__init__(size)
-
-
-#         self.fill(TERRAIN_FILLS[terrain])
+class FieldSurf(pygame.surf.Surface):
+    RUIN_OVERLAY = 
+    def __init__(self, terrain: Terrains, ruin: bool = False) -> None:
+        super().__init__()
+        self.fill(TERRAIN_FILLS[terrain])
 
 
 class MapSprite(pygame.sprite.Sprite):
+    FIELD_SIZE = 10
+
     def __init__(
         self,
         map_values: List[List[Terrains]],
@@ -107,6 +109,8 @@ class OptionSprite(pygame.sprite.Sprite):
         coin: bool,
         valid: bool,
         selected: bool,
+        i_option: int,
+        single: bool,
     ) -> None:
         super().__init__()
 
@@ -218,10 +222,13 @@ class PygameView(View):
 
     def _on_option_click(self, game: CarthographersGame, clicked_sprite: OptionSprite):
         i_option = self._option_sprites.index(clicked_sprite)
+        # TODO account for singel field options
         option = game.exploration_card.options[i_option]
         valid_option = game.map_sheet.is_setable_anywhere(option.coords)
         if self._act_i_option != i_option and valid_option:
             self._act_position = None
+            self._act_rotation = 0
+            self._act_mirror = False
             self._act_i_option = i_option
 
     def _on_map_click(self, game: CarthographersGame):
@@ -237,9 +244,9 @@ class PygameView(View):
         ):
             self._act_position = map_coord
 
-    def _on_next_button_click(self, game: CarthographersGame):
+    def _on_next_button_click(self):
         if self._act_i_option is None or self._act_position is None:
-            return
+            return None
 
         action = (
             self._act_i_option,
@@ -255,18 +262,9 @@ class PygameView(View):
 
         return action
 
-    def render(self, game: CarthographersGame):
-        # get clicked sprite and pressed key
-        clicked_sprite = None
-        pressed_key = None
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                self._closed = True
-            if event.type == pygame.MOUSEBUTTONUP:
-                clicked_sprite = self._get_sprite_under_mouse()
-            if event.type == pygame.KEYDOWN:
-                pressed_key = event.key
-
+    def _on_mouse_click(self, game: CarthographersGame):
+        action = None
+        clicked_sprite = self._get_sprite_under_mouse()
         # update the selected option if option is clicked and valid, if the clicked option is different to the previous one reset the selecte map position
         if clicked_sprite in self._option_sprites:
             self._on_option_click(game, clicked_sprite)
@@ -277,25 +275,42 @@ class PygameView(View):
 
         # directly return the current action if the next button is clicked and an option is selected and a position is selected, reset the selected actions
         if clicked_sprite == self._next_button_sprite:
-            action = self._on_next_button_click(game)
-            if action is not None:
-                return action
+            action = self._on_next_button_click()
 
+        return action
+
+    def _on_key_press(self, pressed_key: int):
         if pressed_key == pygame.M:
-            self._mirrored = not self._mirrored
+            self._act_mirror = not self._act_mirror
 
         if pressed_key == pygame.R:
-            self._rotation = (self._rotation + 1) % 4
+            self._act_rotation = (self._act_rotation + 1) % 4
 
+    def _rebuild_sprites(self, game: CarthographersGame):
         self._rebuild_option_sprites(game)
         self._rebuild_map_sprite(game)
         self._rebuild_score_table_sprite(game)
+
+    def render(self, game: CarthographersGame):
+        # get clicked sprite and pressed key
+        action = None
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                self._closed = True
+            if event.type == pygame.MOUSEBUTTONUP:
+                action = self._on_mouse_click(game)
+            if event.type == pygame.KEYDOWN:
+                self._on_key_press(event.key)
+
+        self._rebuild_sprites(game)
 
         for sprite in self._all_sprites():
             self.display.blit(sprite.image, sprite.rect)
 
         pygame.display.flip()
         self.clock.tick(FRAME_RATE)
+
+        return action
 
     def cleanup(self):
         if not self.closed:

@@ -10,12 +10,10 @@ class View(ABC):
         self._closed = False
 
     @abstractmethod
-    def render(self, game: CarthographersGame):
+    def render(
+        self, game: CarthographersGame
+    ) -> Tuple[int, Tuple[int, int], int, bool, Terrains]:
         pass
-
-    # @abstractmethod
-    # def get_action(self) -> Tuple[int, Tuple[int, int], int, bool, Terrains]:
-    #     pass
 
     @abstractmethod
     def cleanup(self):

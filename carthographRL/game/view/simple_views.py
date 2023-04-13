@@ -1,3 +1,5 @@
+from typing import Tuple
+
 from matplotlib import pyplot as plt
 
 from ..model import CarthographersGame
@@ -15,7 +17,9 @@ class AsciiView(View):
         output = ""
         output += f"{card.name} [{card.time}] (id: {card.id})\n"
 
-    def render(self, game: CarthographersGame):
+    def render(
+        self, game: CarthographersGame
+    ) -> Tuple[int, Tuple[int, int], int, bool, Terrains]:
         output = ""
         output += f"Task A: {self._render_scoring_card(game.scoring_cards[0])}\n"
         output += f"Task B: {self._render_scoring_card(game.scoring_cards[1])}\n"
@@ -26,9 +30,6 @@ class AsciiView(View):
         output += f"Coins: {game.coins}\n"
         output += "\n"
         output += f"Exploration card: {game.exploration_card.name}\n"
-
-    def get_action(self):
-        pass
 
 
 class MplView(View):

@@ -1,4 +1,5 @@
 from typing import Tuple, List, FrozenSet
+from pathlib import Path
 
 import pygame
 
@@ -19,86 +20,72 @@ from .base import View
 # --> use sprite for non overlapping areas: map, score table, each option, info field, next button
 
 # the visuliazetion option can be passed as arguments to the constructor of the view or used as a global variable or a class variable
-# --> use class variabels for sprites and surfaces
+# --> use class variabels for sprites and surfaces as the variables often also depend on the way how we create the basic surface
 
 # sprites contain only the information necessary to draw themselfs, they do not contain any information about their position and no information about the game state
 
 # surfaces are the most elementary pygame objects, sprites are built from multiple surfaces
 # --> create a subclass for all used surfaces, to change the appearance of the game only the surface classes need to be changed
 # these surface subclasses encapsulate the backgound, size and fill of the surface which are otherwise a lot of arguments to the constructor of the surface
+
+# use .png assets instead of .svg as it is easier to load them into pygame
 ###
-
-FRAME_RATE = 30
-DISPLAY_SIZE = (800, 400)
-BACKGOUND = (255, 255, 255)
-MAP_POS = (20, 20)
-# map dosent need a size as its computed from the field sizes
-# map doesnt need a background as its completely covered by the fields
-FIELD_SIZE = 10
-OPTIONS_POS = (20, 300)
-OPTION_SIZE = (60, 30)
-OPTIONS_SPACING = 10
-OPTION_VALID_BACKGROUND = (0, 255, 0)
-OPTION_INVALID_BACKGROUND = (255, 0, 0)
-OPTION_FIELD_OFFSET = (5, 5)
-OPTION_FIELD_SIZE = 10
-OPTION_COIN_OFFSET = (5, 5)
-TERRAIN_FILLS = {
-    Terrains.EMPTY: (255, 255, 255),
-    Terrains.FOREST: (0, 255, 0),
-    Terrains.MOUNTAIN: (0, 0, 0),
-    Terrains.WATER: (0, 0, 255),
-    Terrains.WASTE: (255, 255, 0),
-}
-
-
-# OPTION_BACKGROUND_FILL = (255, 255, 255)
-# OPTION_SIZE = (50, 50)
-# OPTION_FIELD_SIZE = 10
-# VALID_OPTION_FILL = (0, 255, 0)
-# INVALID_OPTION_FILL = (255, 0, 0)
-
-# def create_surface(fill_value: Union[str, Path, Iterable], size):
-#     if fill_value is None:
-#         surf = pygame.Surface(size)
-#     elif isinstance(fill_value, (tuple, list)):
-#         surf = pygame.Surface(size)
-#         surf.fill(fill_value)
-#     elif isinstance(fill_value, (str, Path)):
-#         surf = pygame.transform.scale(pygame.image.load(fill_value).convert(), size)
-#     else:
-#         raise ValueError(f"Invalid fill value: {fill_value}")
-
-#     return surf
 
 
 class FieldSurf(pygame.surf.Surface):
-    RUIN_OVERLAY = 
+    RUIN_OVERLAY = Path(__file__).parent / "assets" / "ruin_128.png"
+    ICONS = {
+        Terrains.VILLAGE: (Path(__file__).parent / "assets" / "house_128.png",),
+        Terrains.WATER: (Path(__file__).parent / "assets" / "water_128.png",),
+        Terrains.FOREST: (Path(__file__).parent / "assets" / "tree_128.png",),
+        Terrains.FARM: (Path(__file__).parent / "assets" / "field_128.png",),
+        Terrains.MONSTER: (Path(__file__).parent / "assets" / "monster_128.png",),
+        Terrains.EMPTY: (Path(__file__).parent / "assets" / "empty.png",),
+        Terrains.MOUNTAIN: (Path(__file__).parent / "assets" / ".png",),
+        Terrains.WASTE: (Path(__file__).parent / "assets" / ".png",),
+    }
+    BACKGROUND_COLOR = {
+        Terrains.VILLAGE: (204, 24, 24),
+        Terrains.WATER: (47, 32, 179),
+        Terrains.FOREST: (10, 120, 10),
+        Terrains.FARM: (245, 172, 2),
+        Terrains.MONSTER: (122, 16, 143),
+        Terrains.EMPTY: (219, 175, 132),
+        Terrains.MOUNTAIN: (104, 108, 110),
+        Terrains.WASTE: (92, 92, 54),
+    }
+    SIZE = 10
+
     def __init__(self, terrain: Terrains, ruin: bool = False) -> None:
-        super().__init__()
-        self.fill(TERRAIN_FILLS[terrain])
+        super().__init__((self.SIZE, self.SIZE))
+        self.fill(self.BACKGROUND_COLOR[terrain])
 
 
 class MapSprite(pygame.sprite.Sprite):
-    FIELD_SIZE = 10
-
+    # BORDER_WIDTH = 10
+    # BACKGROUND = Path(__file__).parent / "assets" / "background.png"
     def __init__(
         self,
         map_values: List[List[Terrains]],
-        mountain_coords: FrozenSet[Tuple[int, int]],
+        ruin_coords: FrozenSet[Tuple[int, int]],
         candidate_coords: FrozenSet[Tuple[int, int]],
         candidate_terrain: Terrains,
     ) -> None:
         super().__init__()
 
-        self.image = pygame.Surface((300, 300))
-        self.image.fill((255, 255, 255))
+        extent = len(map_values[0]) * FieldSurf.SIZE
+        self.image = pygame.Surface((extent, extent))
         self.rect = self.image.get_rect()
 
-        for x, y in candidate_coords:
-            field_surf = pygame.Surface((10, 10))
-            field_surf.fill((0, 255, 0))
-            self.image.blit(field_surf, (x * 10, y * 10))
+        for x, row in enumerate(map_values):
+            for y, terrain in enumerate(row):
+                field_surf = FieldSurf(terrain, (x, y) in ruin_coords)
+                self.image.blit(field_surf, (x * FieldSurf.SIZE, y * FieldSurf.SIZE))
+
+        # for x, y in candidate_coords:
+        #     field_surf = FieldSurf(candidate_terrain)
+        #     field_surf.fill((0, 255, 0))
+        #     self.image.blit(field_surf, (x * 10, y * 10))
 
 
 class OptionSprite(pygame.sprite.Sprite):
@@ -136,6 +123,8 @@ class InfoSprite(pygame.sprite.Sprite):
 
 
 class PygameView(View):
+    FRAME_RATE = 30
+
     def __init__(self):
         super().__init__()
 
@@ -287,12 +276,11 @@ class PygameView(View):
             self._act_rotation = (self._act_rotation + 1) % 4
 
     def _rebuild_sprites(self, game: CarthographersGame):
-        self._rebuild_option_sprites(game)
+        # self._rebuild_option_sprites(game)
         self._rebuild_map_sprite(game)
-        self._rebuild_score_table_sprite(game)
+        # self._rebuild_score_table_sprite(game)
 
-    def render(self, game: CarthographersGame):
-        # get clicked sprite and pressed key
+    def _event_loop(self, game: CarthographersGame):
         action = None
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -302,13 +290,17 @@ class PygameView(View):
             if event.type == pygame.KEYDOWN:
                 self._on_key_press(event.key)
 
+        return action
+
+    def render(self, game: CarthographersGame):
+        action = self._event_loop(game)
         self._rebuild_sprites(game)
 
         for sprite in self._all_sprites():
             self.display.blit(sprite.image, sprite.rect)
 
         pygame.display.flip()
-        self.clock.tick(FRAME_RATE)
+        self.clock.tick(self.FRAME_RATE)
 
         return action
 
@@ -469,3 +461,45 @@ class PygameView(View):
 #     terrain_surf = pygame.transform.scale(terrain_surf, (field_size, field_size))
 #     for c in coordinates:
 #         self.blit(terrain_surf, (c[0] * field_size, c[1] * field_size))
+
+# FRAME_RATE = 30
+# DISPLAY_SIZE = (800, 400)
+# BACKGOUND = (255, 255, 255)
+# MAP_POS = (20, 20)
+# # map dosent need a size as its computed from the field sizes
+# # map doesnt need a background as its completely covered by the fields
+# FIELD_SIZE = 10
+# OPTIONS_POS = (20, 300)
+# OPTION_SIZE = (60, 30)
+# OPTIONS_SPACING = 10
+# OPTION_VALID_BACKGROUND = (0, 255, 0)
+# OPTION_INVALID_BACKGROUND = (255, 0, 0)
+# OPTION_FIELD_OFFSET = (5, 5)
+# OPTION_FIELD_SIZE = 10
+# OPTION_COIN_OFFSET = (5, 5)
+# TERRAIN_FILLS = {
+#     Terrains.EMPTY: (255, 255, 255),
+#     Terrains.FOREST: (0, 255, 0),
+#     Terrains.MOUNTAIN: (0, 0, 0),
+#     Terrains.WATER: (0, 0, 255),
+#     Terrains.WASTE: (255, 255, 0),
+# }
+
+# OPTION_BACKGROUND_FILL = (255, 255, 255)
+# OPTION_SIZE = (50, 50)
+# OPTION_FIELD_SIZE = 10
+# VALID_OPTION_FILL = (0, 255, 0)
+# INVALID_OPTION_FILL = (255, 0, 0)
+
+# def create_surface(fill_value: Union[str, Path, Iterable], size):
+#     if fill_value is None:
+#         surf = pygame.Surface(size)
+#     elif isinstance(fill_value, (tuple, list)):
+#         surf = pygame.Surface(size)
+#         surf.fill(fill_value)
+#     elif isinstance(fill_value, (str, Path)):
+#         surf = pygame.transform.scale(pygame.image.load(fill_value).convert(), size)
+#     else:
+#         raise ValueError(f"Invalid fill value: {fill_value}")
+
+#     return surf

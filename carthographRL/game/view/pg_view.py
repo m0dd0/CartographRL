@@ -20,31 +20,30 @@ from .base import View
 # --> use sprite for non overlapping areas: map, score table, each option, info field, next button
 
 # the visuliazetion option can be passed as arguments to the constructor of the view or used as a global variable or a class variable
+# surfaces are the most elementary pygame objects, sprites are built from multiple surfaces
 # --> use class variabels for sprites and surfaces as the variables often also depend on the way how we create the basic surface
+# --> create a subclass for all used surfaces, to change the appearance of the game only the surface classes need to be changed
+# --> the position of a sprite/surface is not saved on the sprite/surface itself but in the class which places the sprite/surface on the next surface, this allows to be more flexbile eith "dynamic" positioning of sprites/surfaces
 
 # sprites contain only the information necessary to draw themselfs, they do not contain any information about their position and no information about the game state
-
-# surfaces are the most elementary pygame objects, sprites are built from multiple surfaces
-# --> create a subclass for all used surfaces, to change the appearance of the game only the surface classes need to be changed
-# these surface subclasses encapsulate the backgound, size and fill of the surface which are otherwise a lot of arguments to the constructor of the surface
 
 # use .png assets instead of .svg as it is easier to load them into pygame
 ###
 
 
-class FieldSurf(pygame.surf.Surface):
+class FieldSurf(pygame.Surface):
     RUIN_OVERLAY = Path(__file__).parent / "assets" / "ruin_128.png"
     ICONS = {
-        Terrains.VILLAGE: (Path(__file__).parent / "assets" / "house_128.png",),
-        Terrains.WATER: (Path(__file__).parent / "assets" / "water_128.png",),
-        Terrains.FOREST: (Path(__file__).parent / "assets" / "tree_128.png",),
-        Terrains.FARM: (Path(__file__).parent / "assets" / "field_128.png",),
-        Terrains.MONSTER: (Path(__file__).parent / "assets" / "monster_128.png",),
-        Terrains.EMPTY: (Path(__file__).parent / "assets" / "empty.png",),
-        Terrains.MOUNTAIN: (Path(__file__).parent / "assets" / ".png",),
-        Terrains.WASTE: (Path(__file__).parent / "assets" / ".png",),
+        Terrains.VILLAGE: Path(__file__).parent / "assets" / "house_128.png",
+        Terrains.WATER: Path(__file__).parent / "assets" / "water_128.png",
+        Terrains.FOREST: Path(__file__).parent / "assets" / "tree_128.png",
+        Terrains.FARM: Path(__file__).parent / "assets" / "field_128.png",
+        Terrains.MONSTER: Path(__file__).parent / "assets" / "monster_128.png",
+        Terrains.EMPTY: Path(__file__).parent / "assets" / "empty.png",
+        Terrains.MOUNTAIN: Path(__file__).parent / "assets" / "mountain_128.png",
+        Terrains.WASTE: Path(__file__).parent / "assets" / ".png",
     }
-    BACKGROUND_COLOR = {
+    FIELD_COLOR = {
         Terrains.VILLAGE: (204, 24, 24),
         Terrains.WATER: (47, 32, 179),
         Terrains.FOREST: (10, 120, 10),
@@ -54,16 +53,55 @@ class FieldSurf(pygame.surf.Surface):
         Terrains.MOUNTAIN: (104, 108, 110),
         Terrains.WASTE: (92, 92, 54),
     }
-    SIZE = 10
+    FRAME_COLOR = (0, 0, 0)
+    FRAME_WIDTH = 1
+    OPACITY = 150
+    CANDIDATE_OPACITY = 50
+    SIZE = 30
+    ICON_SCALE = 0.8
 
-    def __init__(self, terrain: Terrains, ruin: bool = False) -> None:
+    def __init__(
+        self, terrain: Terrains, ruin: bool = False, candidate: bool = False
+    ) -> None:
         super().__init__((self.SIZE, self.SIZE))
-        self.fill(self.BACKGROUND_COLOR[terrain])
+
+        # fill with terrain color
+        self.fill(self.FIELD_COLOR[terrain])
+
+        # draw frame
+        pygame.draw.rect(
+            self, self.FRAME_COLOR, (0, 0, self.SIZE, self.SIZE), self.FRAME_WIDTH
+        )
+
+        # draw terrain icon
+        icon_size = int(self.SIZE * self.ICON_SCALE)
+        icon_anchor = (self.SIZE - icon_size) // 2
+        self.blit(
+            pygame.transform.scale(
+                pygame.image.load(self.ICONS[terrain]).convert_alpha(),
+                (icon_size, icon_size),
+            ),
+            (icon_anchor, icon_anchor),
+        )
+
+        # draw ruin overlay
+        if ruin:
+            self.blit(
+                pygame.transform.scale(
+                    pygame.image.load(self.RUIN_OVERLAY).convert_alpha(),
+                    (icon_size, icon_size),
+                ),
+                (icon_anchor, icon_anchor),
+            )
+
+        # set opacity
+        self.set_alpha(self.OPACITY if not candidate else self.CANDIDATE_OPACITY)
 
 
 class MapSprite(pygame.sprite.Sprite):
-    # BORDER_WIDTH = 10
-    # BACKGROUND = Path(__file__).parent / "assets" / "background.png"
+    PADDING = 10
+    BACKGROUND = Path(__file__).parent / "assets" / "map_background.jpg"
+
     def __init__(
         self,
         map_values: List[List[Terrains]],
@@ -73,14 +111,23 @@ class MapSprite(pygame.sprite.Sprite):
     ) -> None:
         super().__init__()
 
-        extent = len(map_values[0]) * FieldSurf.SIZE
-        self.image = pygame.Surface((extent, extent))
+        extent = len(map_values[0]) * FieldSurf.SIZE + self.PADDING * 2
+        self.image = pygame.transform.scale(
+            pygame.image.load(self.BACKGROUND).convert(), (extent, extent)
+        )
+
         self.rect = self.image.get_rect()
 
         for x, row in enumerate(map_values):
             for y, terrain in enumerate(row):
                 field_surf = FieldSurf(terrain, (x, y) in ruin_coords)
-                self.image.blit(field_surf, (x * FieldSurf.SIZE, y * FieldSurf.SIZE))
+                self.image.blit(
+                    field_surf,
+                    (
+                        x * FieldSurf.SIZE + self.PADDING,
+                        y * FieldSurf.SIZE + self.PADDING,
+                    ),
+                )
 
         # for x, y in candidate_coords:
         #     field_surf = FieldSurf(candidate_terrain)
@@ -124,13 +171,18 @@ class InfoSprite(pygame.sprite.Sprite):
 
 class PygameView(View):
     FRAME_RATE = 30
+    BACKGROUND_COLOR = (255, 255, 255)
+    SCREEN_SIZE = (800, 800)
+
+    MAP_POSITION = (50, 50)
 
     def __init__(self):
         super().__init__()
 
         # pygame basic settings
         pygame.init()
-        self.display = pygame.display.set_mode((800, 400))
+        self.display = pygame.display.set_mode(self.SCREEN_SIZE)
+        self.display.fill(self.BACKGROUND_COLOR)
         self.clock = pygame.time.Clock()
 
         # sprites
@@ -148,12 +200,14 @@ class PygameView(View):
         self._act_single_field = None
 
     def _all_sprites(self) -> List[pygame.sprite.Sprite]:
-        return [
+        sprites = [
             self.map_sprite,
             self._score_table_sprite,
             self._next_button_sprite,
             self._info_sprite,
         ] + self._option_sprites
+
+        return [s for s in sprites if s is not None]
 
     def _get_sprite_under_mouse(self) -> Tuple[int, int]:
         mouse_pos = pygame.mouse.get_pos()
@@ -207,7 +261,10 @@ class PygameView(View):
                 coords, self._act_rotation, self._act_position, self._act_mirror
             )
 
-        self.map_sprite = MapSprite(game.map_sheet.to_list(), coords, terrain)
+        self.map_sprite = MapSprite(
+            game.map_sheet.to_list(), game.map_sheet.ruin_coords, coords, terrain
+        )
+        self.map_sprite.rect.topleft = self.MAP_POSITION
 
     def _on_option_click(self, game: CarthographersGame, clicked_sprite: OptionSprite):
         i_option = self._option_sprites.index(clicked_sprite)
@@ -298,6 +355,14 @@ class PygameView(View):
 
         for sprite in self._all_sprites():
             self.display.blit(sprite.image, sprite.rect)
+
+        # test_surf = pygame.Surface((100, 100))
+        # test_surf.fill((255, 0, 0))
+        # test_surf.set_colorkey((255, 0, 0))
+        # pygame.draw.rect(test_surf, (255, 255, 0), (0, 0, 100, 100), 0, 10)
+        # pygame.draw.rect(test_surf, (0, 0, 0), (0, 0, 100, 100), 3, 10)
+        # # pygame.draw.rect(test_surf, (0, 255, 0), (0, 0, 100, 100), 0, 10)
+        # self.display.blit(test_surf, (50, 50))
 
         pygame.display.flip()
         self.clock.tick(self.FRAME_RATE)

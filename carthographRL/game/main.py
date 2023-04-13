@@ -5,7 +5,7 @@ from carthographRL.game.controller import Controller
 
 def main():
     game = CarthographersGame()
-    view = PygameView(game.map_sheet.size)
+    view = PygameView()
     controller = Controller(game, view)
     controller.run()
 

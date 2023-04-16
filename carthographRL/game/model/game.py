@@ -61,7 +61,8 @@ class CarthographersGame:
         self.season = 0
         self.time = 0
         self.ruin = False  # wehther the next area must be placed on a ruin
-        self.exploration_card = self.exploration_deck.draw()
+        self.exploration_card = None
+        self._draw_exploration_card()
 
         # progress of the game
         self.coins_from_options = 0
@@ -85,7 +86,9 @@ class CarthographersGame:
         setable_options = list(
             self.map_sheet.setable_options(shape_coords, on_ruin=False)
         )
-        rotation, position, mirror = self._rng.choice(setable_options)
+        rotation, position, mirror = setable_options[
+            self._rng.integers(len(setable_options))
+        ]
         self.map_sheet.place(
             shape_coords, Terrains.MONSTER, rotation, position, mirror, on_ruin=False
         )
@@ -138,6 +141,7 @@ class CarthographersGame:
         Args:
             monster_card (MonsterCard): The monster card to place.
         """
+        shape_coords = monster_card.coords
         if not self.map_sheet.is_setable_anywhere(monster_card.coords, on_ruin=False):
             shape_coords = np.array([[0, 0]])
 
@@ -192,15 +196,26 @@ class CarthographersGame:
                 self._set_monster(drawn_card)
             elif isinstance(drawn_card, ExplorationCard):
                 self.exploration_card = drawn_card
+                # if we can set the exploration card only if the ruin constraint is not active, we deactivate it
+                if (
+                    self.ruin
+                    and not self.setable_option_exists()
+                    and self.setable_option_exists(on_ruin=False)
+                ):
+                    self.ruin = False
+                # if there is (still) no setable option, this means we set a single field which never has a ruin constraint
+                if not self.setable_option_exists():
+                    self.ruin = False
+                    # TODO considfer using a single field attribute to avoid recomputing setable options
 
-    def setable_option_exists(self) -> bool:
+    def setable_option_exists(self, on_ruin: bool = None) -> bool:
         """Returns whether there is at least one setable option for the current exploration card.
 
         Returns:
             bool: True if there is at least one setable option, False otherwise.
         """
         return any(
-            self.map_sheet.is_setable_anywhere(opt, self.ruin)
+            self.map_sheet.is_setable_anywhere(opt.coords, on_ruin or self.ruin)
             for opt in self.exploration_card.options
         )
 

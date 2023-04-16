@@ -22,6 +22,8 @@ setuptools.setup(
         "nptyping",
         "matplotlib",
         "pygame",
+        "pyyaml",
+        "mergedeep",
     ],
     extras_require={"dev": ["black", "pylint", "jupyter"]},
     include_package_data=True,

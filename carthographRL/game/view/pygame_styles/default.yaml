@@ -1,0 +1,49 @@
+# general style
+assets_folder: assets
+title: Carthographers
+map_position: [50, 50]
+options_position: [500, 50]
+options_spacing: 30
+# screen
+screen_size: [800, 600]
+screen_color: [255, 255, 255]
+screen_image: null
+screen_frame_width: 4
+screen_frame_color: [0,0,0]
+screen_frame_rounding: 0
+# map
+map_background_color: [255, 255, 255]
+map_backgound_image: null
+map_frame_width: 0
+map_frame_color: [0, 0, 0]
+map_frame_rounding: 0
+map_padding: 30
+# options
+
+# field
+field_size: 30
+field_ruin_overlay: "ruin.jpg"
+field_opacity: 150
+field_candidate_opacity: 50
+field_frame_color: [0, 0, 0]
+field_frame_width: 1
+field_frame_rounding: 0
+field_icon_size: 25
+field_icons:
+  village: null #"house.png"
+  water: null #"water.png"
+  forest: null #"tree.png"
+  farm: null #"field.png"
+  monster: null #"monster.png"
+  empty: null #"empty.png"
+  mountain: null #"mountain.png"
+  waste: null
+field_colors:
+  village: [204, 24, 24]
+  water: [47, 32, 179]
+  forest: [10, 120, 10]
+  farm: [245, 172, 2]
+  monster: [122, 16, 143]
+  empty: [219, 175, 132]
+  mountain: [104, 108, 110]
+  waste: [92, 92, 54]

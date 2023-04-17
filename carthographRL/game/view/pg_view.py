@@ -1,4 +1,4 @@
-from typing import Tuple, List, FrozenSet, Dict, Any
+from typing import Tuple, List, FrozenSet, Dict, Any, Union
 from pathlib import Path
 import logging
 
@@ -20,9 +20,6 @@ from .base import View
 # use view sprites whose surface consistes of different more elementary surfaces (e.g. a map sprite whose surface consists of a background surface, a grid surface, and a surface for each field)
 #       - only areas which might be clicked need to be checked for collision so we need only sprites for these few areas
 # --> use sprite for each clickable/hoverable area: map, score table, each option, info field, next button
-
-# sprites should contain only the information necessary to draw themselfs, they do not contain any information about their position and no information about the game state
-#       -however in some cases they can also contain some logic as this maked live much easier (e.g. the map sprite can contain the logic to get the hover coordinates)
 
 # use .png assets instead of .svg as it is easier to load them into pygame
 
@@ -146,14 +143,14 @@ class ImageRectSurf(pygame.Surface):
             self.blit(ImageSurf(image_size, image), image_offset)
 
 
-class ScreenSurf(ImageRectSurf):
+class ScreenSprite(pygame.sprite.Sprite):
     def __init__(self, style: Dict[str, Any]):
-        """Background surface for the game screen.
+        """Background sprite for the game screen.
 
         Args:
             style (Dict[str, Any]): Style dictionary.
         """
-        super().__init__(
+        self.image = ImageRectSurf(
             style["screen_size"],
             style["screen_color"],
             style["screen_frame_color"],
@@ -163,6 +160,7 @@ class ScreenSurf(ImageRectSurf):
             style["screen_image_size"],
             style["screen_image_offset"],
         )
+        self.rect = self.image.get_rect()
 
 
 class FieldSurf(ImageRectSurf):
@@ -214,132 +212,318 @@ class MapSprite(pygame.sprite.Sprite):
         self,
         map_values: List[List[Terrains]],
         ruin_coords: FrozenSet[Tuple[int, int]],
-        candidate_coords: FrozenSet[Tuple[int, int]],
-        candidate_terrain: Terrains,
         style: Dict[str, Any],
     ) -> None:
+        """Visualization of the map including the backgound of the map.
+        Created the initial state of the map with no candidate fields.
+        Contains also essential properties for the map and some logic for placing candidates.
+
+        Args:
+            map_values (List[List[Terrains]]): Map values.
+            ruin_coords (FrozenSet[Tuple[int, int]]): Coordinates of the ruins.
+            style (Dict[str, Any]): Style dictionary.
+        """
         super().__init__()
 
-        # we need to store these values for inferrence of the field coordinates
-        self._field_size = style["field_size"]
-        self._padding = style["map_padding"]
+        self._style = style
+        self._map_values = map_values
+        self._ruin_coords = ruin_coords
+        self._candidate_map_coords = frozenset()
+        self._fixed_candidate = False
+        self._style = style
 
-        extent = len(map_values[0]) * style["field_size"] + style["map_padding"] * 2
+        self.image = None
+        self.rect = None
+        self._build()
+
+    def _build(self):
+        """Builds the map surface depending on the current state of the map."""
+        extent = (
+            len(self._map_values[0]) * self._style["field_size"]
+            + self._style["map_padding"] * 2
+        )
         self.image = ImageRectSurf(
             (extent, extent),
-            style["map_color"],
-            style["map_frame_color"],
-            style["map_frame_width"],
-            style["map_frame_rounding"],
-            get_assets_path(style["assets_folder"], style["map_image"]),
+            self._style["map_color"],
+            self._style["map_frame_color"],
+            self._style["map_frame_width"],
+            self._style["map_frame_rounding"],
+            get_assets_path(self._style["assets_folder"], self._style["map_image"]),
         )
 
-        # here we have some code repetition, but it's not worth it to create a separate area class for this as the cases are always different in some way
-        for x, row in enumerate(map_values):
+        for x, row in enumerate(self._map_values):
             for y, terrain in enumerate(row):
-                field_surf = FieldSurf(terrain, (x, y) in ruin_coords, False, style)
+                field_surf = FieldSurf(
+                    terrain, (x, y) in self._ruin_coords, False, self._style
+                )
                 self.image.blit(
                     field_surf,
                     (
-                        x * style["field_size"] + style["map_padding"],
-                        y * style["field_size"] + style["map_padding"],
+                        x * self._style["field_size"] + self._style["map_padding"],
+                        y * self._style["field_size"] + self._style["map_padding"],
                     ),
                 )
 
-        if candidate_coords is not None:
-            for x, y in candidate_coords:
-                field_surf = FieldSurf(
-                    candidate_terrain, (x, y) in ruin_coords, True, style
-                )
-                self.image.blit(
-                    field_surf,
-                    (
-                        x * style["field_size"] + style["map_padding"],
-                        y * style["field_size"] + style["map_padding"],
-                    ),
-                )
+        for x, y in self._candidate_map_coords:
+            # TODO different display for fixed candidates
+            field_surf = FieldSurf(
+                self.candidate_terrain, (x, y) in self._ruin_coords, True, self._style
+            )
+            self.image.blit(
+                field_surf,
+                (
+                    x * self._style["field_size"] + self._style["map_padding"],
+                    y * self._style["field_size"] + self._style["map_padding"],
+                ),
+            )
 
         self.rect = self.image.get_rect()
 
-    def get_mouse_grid_coords(self, mouse_pos: Tuple[int, int]):
-        x = (mouse_pos[0] - self.rect.x - self._padding) // self._field_size
-        y = (mouse_pos[1] - self.rect.y - self._padding) // self._field_size
+    def get_mouse_grid_coords(self, mouse_pos: Tuple[int, int]) -> Tuple[int, int]:
+        """Returns the grid coordinates of the field the mouse is currently over.
+
+        Args:
+            mouse_pos (Tuple[int, int]): Mouse position in pixels.
+
+        Returns:
+            Tuple[int, int]: Grid coordinates of the field the mouse is currently over.
+                None if the mouse is not over the clickable area of the map.
+        """
+
+        if not self.rect.collidepoint(mouse_pos):
+            return None
+        x = (mouse_pos[0] - self.rect.x - self._style["map_padding"]) // self._style[
+            "field_size"
+        ]
+        y = (mouse_pos[1] - self.rect.y - self._style["map_padding"]) // self._style[
+            "field_size"
+        ]
         return x, y
+
+    def candidate_position(self) -> Tuple[int, int]:
+        """Returns the origin position of the candidate field in pixels.
+
+        Returns:
+            Tuple[int, int]: Origin position of the candidate field in pixels.
+                None if there are no candidate fields.
+        """
+        if len(self.candidate_map_coords) == 0:
+            return None
+
+        x = min([x for x, _ in self.candidate_map_coords])
+        y = min([y for _, y in self.candidate_map_coords])
+
+        return x, y
+
+    @property
+    def map_values(self):
+        return self._map_values
+
+    @map_values.setter
+    def map_values(self, map_values):
+        self._map_values = map_values
+        self._build()
+
+    @property
+    def candidate_map_coords(self):
+        return self._candidate_map_coords
+
+    @candidate_map_coords.setter
+    def candidate_map_coords(self, candidate_map_coords):
+        self._candidate_map_coords = candidate_map_coords
+        self._build()
+
+    @property
+    def fixed_candidate(self):
+        return self._fixed_candidate
+
+    @fixed_candidate.setter
+    def fixed_candidate(self, fixed_candidate):
+        self._fixed_candidate = fixed_candidate
+        self._build()
 
 
 class OptionSprite(pygame.sprite.Sprite):
     def __init__(
         self,
-        coords: FrozenSet[Tuple[int, int]],
+        shape_coords: FrozenSet[Tuple[int, int]],
         terrain: Terrains,
         coin: bool,
         valid: bool,
-        selected: bool,
-        i_option: int,
-        single_option: bool,
+        i_option: Union[int, Terrains],
         style: Dict[str, Any],
     ) -> None:
+        """Visualization of a single option in the current state of the game.
+        Contains also the state of the option (selected, valid, rotation, mirror, index).
+
+        Args:
+            shape_coords (FrozenSet[Tuple[int, int]]): Original oordinates of the option shape.
+            terrain (Terrains): Terrain of the option.
+            coin (bool): Whether the option contains a coin.
+            valid (bool): Whether the option is valid.
+            i_option (Union[int, Terrains]): Index of the option or terrain if the option is a single field option.
+            style (Dict[str, Any]): Style dictionary.
+        """
         super().__init__()
 
-        self.i_option = i_option
+        self._shape_coords = shape_coords
+        self._terrain = terrain
+        self._coin = coin
+        self._valid = valid
+        self._i_option = i_option
+        self._rotation = 0
+        self._mirror = False
+        self._selected = False
+        self._style = style
 
-        size = style["option_size"]
-        if single_option:
+        self.image = None
+        self.rect = None
+        self._build()
+
+    def _build(self):
+        """Builds the option surface depending on the current state of the option."""
+        size = self._style["option_size"]
+        if isinstance(self._i_option, Terrains):
             size = (
-                style["field_size"] + style["option_shape_offset"][0] * 2,
-                style["field_size"] + style["option_shape_offset"][1] * 2,
+                self._style["field_size"] + self._style["option_shape_offset"][0] * 2,
+                self._style["field_size"] + self._style["option_shape_offset"][1] * 2,
             )
-        if not selected:
+        if not self._selected:
             self.image = ImageRectSurf(
                 size,
-                style["option_color"],
-                style["option_frame_color"],
-                style["option_frame_width"],
-                style["option_frame_rounding"],
-                get_assets_path(style["assets_folder"], style["option_image"]),
+                self._style["option_color"],
+                self._style["option_frame_color"],
+                self._style["option_frame_width"],
+                self._style["option_frame_rounding"],
+                get_assets_path(
+                    self._style["assets_folder"], self._style["option_image"]
+                ),
             )
         else:
             self.image = ImageRectSurf(
                 size,
-                style["option_color_selected"],
-                style["option_frame_color_selected"],
-                style["option_frame_width_selected"],
-                style["option_frame_rounding_selected"],
-                get_assets_path(style["assets_folder"], style["option_image_selected"]),
-            )
-
-        if not valid:
-            self.image = pygame.transform.grayscale(self.image)
-
-        for x, y in coords:
-            field_surf = FieldSurf(terrain, False, False, style)
-            self.image.blit(
-                field_surf,
-                (
-                    x * style["field_size"] + style["option_shape_offset"][0],
-                    y * style["field_size"] + style["option_shape_offset"][1],
+                self._style["option_color_selected"],
+                self._style["option_frame_color_selected"],
+                self._style["option_frame_width_selected"],
+                self._style["option_frame_rounding_selected"],
+                get_assets_path(
+                    self._style["assets_folder"], self._style["option_image_selected"]
                 ),
             )
 
-        if not single_option:
-            coin_surf = ImageRectSurf(
-                style["option_coin_size"],
-                style["option_coin_color"],
-                style["option_coin_frame_color"],
-                style["option_coin_frame_width"],
-                style["option_coin_frame_rounding"],
-                get_assets_path(style["assets_folder"], style["option_coin_image"]),
+        if not self._valid:
+            self.image = pygame.transform.grayscale(self.image)
+
+        coords = self._transform_shape_coords(
+            self.shape_coords, self._mirror, self._rotation
+        )
+        for x, y in coords:
+            field_surf = FieldSurf(self._terrain, False, False, self._style)
+            self.image.blit(
+                field_surf,
+                (
+                    x * self._style["field_size"]
+                    + self._style["option_shape_offset"][0],
+                    y * self._style["field_size"]
+                    + self._style["option_shape_offset"][1],
+                ),
             )
-            if not coin:
+
+        if not isinstance(self._i_option, Terrains):
+            coin_surf = ImageRectSurf(
+                self._style["option_coin_size"],
+                self._style["option_coin_color"],
+                self._style["option_coin_frame_color"],
+                self._style["option_coin_frame_width"],
+                self._style["option_coin_frame_rounding"],
+                get_assets_path(
+                    self._style["assets_folder"], self._style["option_coin_image"]
+                ),
+            )
+            if not self._coin:
                 coin_surf = pygame.transform.grayscale(coin_surf)
 
-            self.image.blit(coin_surf, style["option_coin_offset"])
+            self.image.blit(coin_surf, self._style["option_coin_offset"])
 
         self.rect = self.image.get_rect()
 
+    def _transform_shape_coords(
+        self, shape_coords: FrozenSet[Tuple[int, int]], mirror: bool, rotation: int
+    ) -> FrozenSet[Tuple[int, int]]:
+        """Transforms the shape coordinates depending on the current state of the option.
+        I.e. rotates and mirrors the shape coordinates to obtain the coorindates to display.
+        Tge shape_coord attribute is not changed.
+
+        Args:
+            shape_coords (FrozenSet[Tuple[int, int]]): Original coordinates of the option shape.
+            mirror (bool): Whether the option is mirrored.
+            rotation (int): Rotation of the option.
+
+        Returns:
+            FrozenSet[Tuple[int, int]]: Transformed coordinates of the option shape.
+        """
+        if mirror:
+            shape_coords = {(-x, y) for x, y in shape_coords}
+
+        if rotation == 0:
+            shape_coords = shape_coords
+        elif rotation == 1:
+            shape_coords = {(y, -x) for x, y in shape_coords}
+        elif rotation == 2:
+            shape_coords = {(-x, -y) for x, y in shape_coords}
+        elif rotation == 3:
+            shape_coords = {(-y, x) for x, y in shape_coords}
+        else:
+            raise ValueError(f"Invalid rotation: {rotation}")
+
+        min_x = min(x for x, _ in shape_coords)
+        min_y = min(y for _, y in shape_coords)
+        shape_coords = {(x - min_x, y - min_y) for x, y in shape_coords}
+
+        return shape_coords
+
+    @property
+    def rotation(self):
+        return self._rotation
+
+    @rotation.setter
+    def rotation(self, rotation):
+        self._rotation = rotation
+        self._build()
+
+    @property
+    def mirror(self):
+        return self._mirror
+
+    @mirror.setter
+    def mirror(self, mirror):
+        self._mirror = mirror
+        self._build()
+
+    @property
+    def selected(self):
+        return self._selected
+
+    @selected.setter
+    def selected(self, selected):
+        self._selected = selected
+        self._build()
+
+    @property
+    def valid(self):
+        return self._valid
+
+    @property
+    def shape_coords(self):
+        return self._shape_coords
+
+    @property
+    def i_option(self):
+        return self._i_option
+
 
 class OptionsBackgroundSurf(ImageRectSurf):
-    def __init__(self, name, time, style: Dict[str, Any]) -> None:
+    def __init__(self, name: str, time: int, style: Dict[str, Any]) -> None:
         super().__init__(
             style["options_background_size"],
             style["options_background_color"],
@@ -348,6 +532,8 @@ class OptionsBackgroundSurf(ImageRectSurf):
             style["options_background_frame_rounding"],
             get_assets_path(style["assets_folder"], style["options_background_image"]),
         )
+
+        # TODO time and name
 
 
 class ScoreTableSprite(pygame.sprite.Sprite):
@@ -399,33 +585,43 @@ class PygameView(View):
         # pygame basic settings
         pygame.init()
         self.display = pygame.display.set_mode(self.style["screen_size"])
-        self.display.blit(ScreenSurf(self.style), (0, 0))
         pygame.display.set_caption(self.style["title"])
         self.clock = pygame.time.Clock()
         self.frame_rate = frame_rate
 
         # sprites
+        self._background_sprite = ScreenSprite(self.style)
         self._map_sprite = None
         self._option_sprites = []
         self._score_table_sprite = None
         self._next_button_sprite = None
         self._info_sprite = None
 
-        # view state / selected action values
-        self._act_i_option = None  # selected option index or terrain if singel option, None if no option selected
-        self._act_position = None  # last clicked position on the map which is valid for the selected option
-        self._act_rotation = 0
-        self._act_mirror = False
-        # self._act_single_field = None
-        self._map_hover_coord = None  # last hovered position on the map which is valid for the selected option
+    def _state_tuple(self):
+        selected_option_sprite = self._selected_option_sprite()
+        return (
+            selected_option_sprite.i_option
+            if selected_option_sprite is not None
+            else None,
+            self._map_sprite.candidate_position(),
+            self._map_sprite.fixed_candidate,
+            selected_option_sprite.rotation
+            if selected_option_sprite is not None
+            else None,
+            selected_option_sprite.mirror
+            if selected_option_sprite is not None
+            else None,
+        )
 
     def _all_sprites(self) -> List[pygame.sprite.Sprite]:
-        """Returns all sprites of the view. If the render methods hasn't been called
-        before, the sprites can be None values.
+        """Returns all sprites of the view. If the sprites hasn't been created yet,
+        the values will be None.
+        The ordering accounts for the drawing order.
 
         Returns:
             List[pygame.sprite.Sprite]: List of all sprites."""
         sprites = [
+            self._background_sprite,
             self._map_sprite,
             # self._score_table_sprite,
             # self._next_button_sprite,
@@ -434,32 +630,32 @@ class PygameView(View):
 
         return sprites
 
-    def _state_tuple(self):
-        """Returns the current state of the view as a tuple. The state is used to
-        check if the view has to be updated and to infer the selected action.
-        It contains the following values:
-            - i_option: Index of the selected option.
-            - position: Position of the selected option.
-            - rotation: Rotation of the selected option.
-            - mirror: Mirror of the selected option.
-        """
-        return (
-            self._act_i_option,
-            self._act_position,
-            self._act_rotation,
-            self._act_mirror,
-            self._map_hover_coord,
-        )
+    def _selected_option_sprite(self):
+        for os in self._option_sprites:
+            if os.selected:
+                return os
 
-    def _rebuild_option_sprites(self, game: CarthographersGame):
+        return None
+
+    def _sprites_under_mouse(self) -> Tuple[int, int]:
+        mouse_pos = pygame.mouse.get_pos()
+
+        clicked_sprites = [
+            s for s in self._all_sprites() if s.rect.collidepoint(mouse_pos)
+        ]
+        return clicked_sprites
+
+    def _build_option_sprites(self, game: CarthographersGame):
+        # delete option sprites from previous move
         self._option_sprites = []
+
+        # create regular option sprites
         for i_opt, opt in enumerate(game.exploration_card.options):
             option_sprite = OptionSprite(
                 opt.coords,
                 opt.terrain,
                 opt.coin,
                 game.map_sheet.is_setable_anywhere(opt.coords, game.ruin),
-                self._act_i_option == i_opt,
                 i_opt,
                 self.style,
             )
@@ -470,9 +666,8 @@ class PygameView(View):
             )
             self._option_sprites.append(option_sprite)
 
-        if game.setable_option_exists():
-            return
-
+        # create single field option sprites
+        setable_option_exists = game.setable_option_exists()
         for i, terrain in enumerate(
             [
                 Terrains.VILLAGE,
@@ -486,110 +681,71 @@ class PygameView(View):
                 frozenset([(0, 0)]),
                 terrain,
                 False,
-                True,
-                self._act_single_field == terrain,
+                not setable_option_exists,
                 terrain,
                 self.style,
             )
             single_option_sprite.rect.topleft = (
-                self.style["options_position"][0]
-                + i * (single_option_sprite.rect.width + self.style["options_spacing"]),
-                self.style["options_position"][1],
+                self.style["single_options_position"][0]
+                + i
+                * (
+                    single_option_sprite.rect.width
+                    + self.style["single_options_spacing"]
+                ),
+                self.style["single_options_position"][1],
             )
             self._option_sprites.append(single_option_sprite)
 
-    def _option_terrain_coords(self, game):
-        coords = None
-        terrain = None
-        if isinstance(self._act_i_option, Terrains):
-            coords = frozenset([(0, 0)])
-            terrain = self._act_i_option
-        else:
-            coords = game.exploration_card.options[self._act_i_option].coords
-            terrain = game.exploration_card.options[self._act_i_option].terrain
-
-        return terrain, coords
-
-    def _rebuild_map_sprite(self, game: CarthographersGame):
-        position = self._act_position or self._map_hover_coord
-        if position is not None:
-            terrain, coords = self._option_terrain_coords(game)
-            coords = game.map_sheet.transform_to_map_coords(
-                coords, self._act_rotation, position, self._act_mirror
-            )
-
+    def _build_map_sprite(self, game: CarthographersGame):
         self._map_sprite = MapSprite(
             game.map_sheet.to_list(),
             game.map_sheet.ruin_coords,
-            coords,
-            terrain,
             self.style,
         )
         self._map_sprite.rect.topleft = self.style["map_position"]
 
-    def _rebuild_sprites(self, game: CarthographersGame):
-        self._rebuild_map_sprite(game)
-        self._rebuild_option_sprites(game)
-        # self._rebuild_score_table_sprite(game)
-
-        for sprite in self._all_sprites():
-            self.display.blit(sprite.image, sprite.rect)
-        pygame.display.flip()
-
-    def _on_option_click(self, game: CarthographersGame, clicked_sprite: OptionSprite):
-        if isinstance(clicked_sprite.i_option, int):
-            option = game.exploration_card.options[clicked_sprite.i_option]
-            valid = game.map_sheet.is_setable_anywhere(option.coords, game.ruin)
-            if valid and self._act_i_option != clicked_sprite.i_option:
-                self._act_i_option = clicked_sprite.i_option
-                self._act_position = None
-                self._act_rotation = 0
-                self._act_mirror = False
-        else:
-            self._act_i_option = clicked_sprite.i_option
-
-    def _get_sprites_under_mouse(self) -> Tuple[int, int]:
-        mouse_pos = pygame.mouse.get_pos()
-
-        clicked_sprites = [
-            s for s in self._all_sprites() if s.rect.collidepoint(mouse_pos)
-        ]
-        return clicked_sprites
+    def _on_option_click(self, option_sprite: OptionSprite):
+        if option_sprite.valid and not option_sprite.selected:
+            self._selected_option_sprite().selected = False
+            option_sprite.selected = True
 
     def _on_map_click(self, game: CarthographersGame):
-        if self._act_i_option is None:
+        if self._map_sprite.candidate_map_coords is None:
+            return
+        self._map_sprite.fixed_candidate = not self._map_sprite.fixed_candidate
+
+    def _on_map_mouse_move(self, game: CarthographersGame):
+        map_coord = self._map_sprite.get_mouse_grid_coords(pygame.mouse.get_pos())
+        selected_option_sprite = self._selected_option_sprite()
+        if map_coord is None or selected_option_sprite is None:
             return
 
-        map_coord = self._map_sprite.get_mouse_grid_coords(pygame.mouse.get_pos())
         if game.map_sheet.is_setable(
-            game.exploration_card.options[self._act_i_option].coords,
-            self._act_rotation,
+            selected_option_sprite.coords,
+            selected_option_sprite.rotation,
             map_coord,
-            self._act_mirror,
+            selected_option_sprite.mirror,
             game.ruin,
         ):
-            self._act_position = map_coord
+            self._map_sprite.candidate_map_coords = (
+                game.map_sheet.transform_to_map_coords(
+                    selected_option_sprite.coords,
+                    selected_option_sprite.rotation,
+                    map_coord,
+                    selected_option_sprite.mirror,
+                )
+            )
+
+    def _on_mouse_move(self, game):
+        hovered_sprites = self._sprites_under_mouse()
+        if self._map_sprite in hovered_sprites:
+            self._on_map_mouse_move(game)
 
     def _on_next_button_click(self):
-        if self._act_i_option is None or self._act_position is None:
-            return None
-
-        action = (
-            self._act_i_option,
-            self._act_position,
-            self._act_rotation,
-            self._act_mirror,
-            self._act_single_field,
-        )
-        self._act_i_option = None
-        self._act_position = None
-        self._act_rotation = 0
-        self._act_mirror = False
-
-        return action
+        pass
 
     def _on_mouse_click(self, game: CarthographersGame):
-        clicked_sprites = self._get_sprites_under_mouse()
+        clicked_sprites = self._sprites_under_mouse()
         for s in clicked_sprites:
             if s in self._option_sprites:
                 self._on_option_click(game, s)
@@ -601,20 +757,12 @@ class PygameView(View):
                 self._on_next_button_click()
 
     def _on_key_press(self, pressed_key: int):
-        if pressed_key == pygame.M:
-            self._act_mirror = not self._act_mirror
+        # if pressed_key == pygame.M:
+        #     self._act_mirror = not self._act_mirror
 
-        if pressed_key == pygame.R:
-            self._act_rotation = (self._act_rotation + 1) % 4
-
-    def _on_mouse_move(self):
-        hovered_sprites = self._get_sprites_under_mouse()
-        if self._map_sprite in hovered_sprites:
-            self._map_hover_coord = self._map_sprite.get_mouse_grid_coords(
-                pygame.mouse.get_pos()
-            )
-        else:
-            self._map_hover_coord = None
+        # if pressed_key == pygame.R:
+        #     self._act_rotation = (self._act_rotation + 1) % 4
+        pass
 
     def _event_loop(self, game: CarthographersGame):
         for event in pygame.event.get():
@@ -624,29 +772,33 @@ class PygameView(View):
                 self._on_mouse_click(game)
             if event.type == pygame.KEYDOWN:
                 self._on_key_press(event.key)
-        self._on_mouse_move()
+        self._on_mouse_move(game)
 
     def render(self, game: CarthographersGame):
         if None in self._all_sprites():
             logging.debug("Building sprites initially")
-            self._rebuild_sprites(game)
+            self._build_option_sprites(game)
+            self._build_map_sprite(game)
 
-        previous_state = self._state_tuple()
-        action = self._event_loop(game)
-        current_state = self._state_tuple()
-        if previous_state != current_state:
-            self._rebuild_sprites(game)
+        old_state = self._state_tuple()
+        self._event_loop(game)
+        new_state = self._state_tuple()
+        if old_state != new_state:
             logging.debug(
-                f"i_option: {str(current_state[0]):<5}, "
-                + f"position: {str(current_state[1]):<5}, "
-                + f"rotation: {str(current_state[2]):<5}, "
-                + f"mirror: {str(current_state[3]):<5}, "
-                + f"single_field: {str(current_state[4]):<5}, "
-                + f"hover_posiiton: {str(current_state[5]):<5}"
+                f"i_option: {str(new_state[0]):<5}, "
+                + f"position: {str(new_state[1]):<5}, "
+                + f"fixed: {str(new_state[2]):<5}, "
+                + f"rotation: {str(new_state[3]):<5}, "
+                + f"mirror: {str(new_state[4]):<5}, "
             )
+
+        for sprite in self._all_sprites():
+            self.display.blit(sprite.image, sprite.rect)
+        pygame.display.flip()
+
         self.clock.tick(self.frame_rate)
 
-        return action
+        # return action
 
     def cleanup(self):
         if not self.closed:

@@ -209,6 +209,8 @@ class ScreenSprite(pygame.sprite.Sprite):
         )
         self.rect = self.image.get_rect()
 
+        self.rect.topleft = (0, 0)
+
 
 class MapSprite(pygame.sprite.Sprite):
     def __init__(
@@ -244,7 +246,8 @@ class MapSprite(pygame.sprite.Sprite):
         """Builds the map surface depending on the current state of the map."""
         style = self._style["map"]
         extent = (
-            len(self._map_values[0]) * self._style["field_size"] + style["padding"] * 2
+            len(self._map_values[0]) * self._style["field"]["size"]
+            + style["padding"] * 2
         )
         self.image = ImageRectSurf(
             (extent, extent),
@@ -339,7 +342,8 @@ class MapSprite(pygame.sprite.Sprite):
     @candidate_map_coords.setter
     def candidate_map_coords(self, candidate_map_coords):
         self._candidate_map_coords = candidate_map_coords
-        self._build()
+        if self._candidate_terrain is not None:
+            self._build()
 
     @property
     def candidate_terrain(self):
@@ -348,7 +352,8 @@ class MapSprite(pygame.sprite.Sprite):
     @candidate_terrain.setter
     def candidate_terrain(self, candidate_terrain):
         self._candidate_terrain = candidate_terrain
-        self._build()
+        if self._candidate_map_coords is not None:
+            self._build()
 
     @property
     def fixed_candidate(self):
@@ -367,7 +372,8 @@ class OptionSprite(pygame.sprite.Sprite):
         terrain: Terrains,
         coin: bool,
         valid: bool,
-        i_option: Union[int, Terrains],
+        option_index: Union[int, Terrains],
+        option_col: int,
         style: Dict[str, Any],
     ) -> None:
         """Visualization of a single option in the current state of the game.
@@ -379,6 +385,7 @@ class OptionSprite(pygame.sprite.Sprite):
             coin (bool): Whether the option contains a coin.
             valid (bool): Whether the option is valid.
             i_option (Union[int, Terrains]): Index of the option or terrain if the option is a single field option.
+            option_col (int): At which "place" the option is positioned.
             style (Dict[str, Any]): Style dictionary.
         """
         super().__init__()
@@ -387,10 +394,11 @@ class OptionSprite(pygame.sprite.Sprite):
         self._terrain = terrain
         self._coin = coin
         self._valid = valid
-        self._i_option = i_option
+        self._i_option = option_index
         self._rotation = 0
         self._mirror = False
         self._selected = False
+        self._option_col = option_col
         self._style = style
 
         self.image = None
@@ -418,9 +426,6 @@ class OptionSprite(pygame.sprite.Sprite):
             style["image_offset"],
             style["opacity"],
         )
-
-        if not self._valid:
-            self.image = pygame.transform.grayscale(self.image)
 
         coords = self._transform_shape_coords(
             self.shape_coords, self._mirror, self._rotation
@@ -454,7 +459,15 @@ class OptionSprite(pygame.sprite.Sprite):
 
             self.image.blit(coin_surf, coin_style["offset"])
 
+        if not self._valid:
+            self.image = pygame.transform.grayscale(self.image)
+
         self.rect = self.image.get_rect()
+        self.rect.topleft = (
+            option_style["position"][0]
+            + self._option_col * (style["size"][0] + option_style["spacing"]),
+            option_style["position"][1],
+        )
 
     def _transform_shape_coords(
         self, shape_coords: FrozenSet[Tuple[int, int]], mirror: bool, rotation: int
@@ -530,11 +543,15 @@ class OptionSprite(pygame.sprite.Sprite):
     def i_option(self):
         return self._i_option
 
+    @property
+    def terrain(self):
+        return self._terrain
 
-class OptionsBackgroundSurf(ImageRectSurf):
+
+class OptionsBackgrounSprite(pygame.sprite.Sprite):
     def __init__(self, name: str, time: int, style: Dict[str, Any]) -> None:
         style = style["options_background"]
-        super().__init__(
+        self.image = ImageRectSurf(
             style["size"],
             style["color"],
             style["frame_color"],
@@ -547,6 +564,9 @@ class OptionsBackgroundSurf(ImageRectSurf):
         )
 
         # TODO time and name
+
+        self.rect = self.image.get_rect()
+        self.rect.topleft = style["position"]
 
 
 class ScoreTableSprite(pygame.sprite.Sprite):
@@ -573,11 +593,6 @@ class NextButtonSprite(pygame.sprite.Sprite):
     pass
 
 
-class InfoSprite(pygame.sprite.Sprite):
-    # TODO
-    pass
-
-
 class PygameView(View):
     def __init__(self, frame_rate: int = 30, style: Dict[str, Any] = None) -> None:
         """Pygame view of the game.
@@ -595,13 +610,10 @@ class PygameView(View):
         with open(default_style_path, "r") as f:
             default_style = yaml.safe_load(f)
         self.style = merge(default_style, style)
-        self.style["assets_folder"] = (
-            Path(__file__).parent / self.style["assets_folder"]
-        )
 
         # pygame basic settings
         pygame.init()
-        self.display = pygame.display.set_mode(self.style["screen_size"])
+        self.display = pygame.display.set_mode(self.style["screen"]["size"])
         pygame.display.set_caption(self.style["title"])
         self.clock = pygame.time.Clock()
         self.frame_rate = frame_rate
@@ -609,10 +621,10 @@ class PygameView(View):
         # sprites
         self._background_sprite = ScreenSprite(self.style)
         self._map_sprite = None
+        self._options_background_sprite = None
         self._option_sprites = []
         self._score_table_sprite = None
         self._next_button_sprite = None
-        self._info_sprite = None
 
     def _state_tuple(self):
         selected_option_sprite = self._selected_option_sprite()
@@ -647,7 +659,7 @@ class PygameView(View):
 
         return sprites
 
-    def _selected_option_sprite(self):
+    def _selected_option_sprite(self) -> OptionSprite:
         for os in self._option_sprites:
             if os.selected:
                 return os
@@ -657,10 +669,10 @@ class PygameView(View):
     def _sprites_under_mouse(self) -> Tuple[int, int]:
         mouse_pos = pygame.mouse.get_pos()
 
-        clicked_sprites = [
+        under_mouse_sprites = [
             s for s in self._all_sprites() if s.rect.collidepoint(mouse_pos)
         ]
-        return clicked_sprites
+        return under_mouse_sprites
 
     def _build_option_sprites(self, game: CarthographersGame):
         # delete option sprites from previous move
@@ -674,12 +686,8 @@ class PygameView(View):
                 opt.coin,
                 game.map_sheet.is_setable_anywhere(opt.coords, game.ruin),
                 i_opt,
+                i_opt,
                 self.style,
-            )
-            option_sprite.rect.topleft = (
-                self.style["options_position"][0]
-                + i_opt * (option_sprite.rect.width + self.style["options_spacing"]),
-                self.style["options_position"][1],
             )
             self._option_sprites.append(option_sprite)
 
@@ -700,16 +708,8 @@ class PygameView(View):
                 False,
                 not setable_option_exists,
                 terrain,
+                i,
                 self.style,
-            )
-            single_option_sprite.rect.topleft = (
-                self.style["single_options_position"][0]
-                + i
-                * (
-                    single_option_sprite.rect.width
-                    + self.style["single_options_spacing"]
-                ),
-                self.style["single_options_position"][1],
             )
             self._option_sprites.append(single_option_sprite)
 
@@ -719,11 +719,12 @@ class PygameView(View):
             game.map_sheet.ruin_coords,
             self.style,
         )
-        self._map_sprite.rect.topleft = self.style["map_position"]
 
     def _on_option_click(self, option_sprite: OptionSprite):
         if option_sprite.valid and not option_sprite.selected:
-            self._selected_option_sprite().selected = False
+            current_selected_option_sprite = self._selected_option_sprite()
+            if current_selected_option_sprite is not None:
+                current_selected_option_sprite.selected = False
             option_sprite.selected = True
 
     def _on_map_click(self, game: CarthographersGame):
@@ -738,7 +739,7 @@ class PygameView(View):
             return
 
         if game.map_sheet.is_setable(
-            selected_option_sprite.coords,
+            selected_option_sprite.shape_coords,
             selected_option_sprite.rotation,
             map_coord,
             selected_option_sprite.mirror,
@@ -746,12 +747,13 @@ class PygameView(View):
         ):
             self._map_sprite.candidate_map_coords = (
                 game.map_sheet.transform_to_map_coords(
-                    selected_option_sprite.coords,
+                    selected_option_sprite.shape_coords,
                     selected_option_sprite.rotation,
                     map_coord,
                     selected_option_sprite.mirror,
                 )
             )
+            self._map_sprite.candidate_terrain = selected_option_sprite.terrain
 
     def _on_mouse_move(self, game):
         hovered_sprites = self._sprites_under_mouse()
@@ -765,7 +767,7 @@ class PygameView(View):
         clicked_sprites = self._sprites_under_mouse()
         for s in clicked_sprites:
             if s in self._option_sprites:
-                self._on_option_click(game, s)
+                self._on_option_click(s)
 
             if s == self._map_sprite:
                 self._on_map_click(game)

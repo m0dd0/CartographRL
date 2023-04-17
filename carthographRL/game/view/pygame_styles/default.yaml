@@ -1,80 +1,129 @@
-# general style
-assets_folder: assets
 title: Carthographers
-map_position: [30, 30]
-options_position: [30, 400]
-options_spacing: 30
-# screen
-screen_size: [1000, 700]
-screen_color: [255, 255, 255]
-screen_image: null
-screen_image_size: [800, 600]
-screen_image_offset: [0, 0]
-screen_frame_width: -1
-screen_frame_color: [0, 0, 0]
-screen_frame_rounding: 0
-# map
-map_color: [255, 255, 255]
-map_image: null
-map_frame_width: 2
-map_frame_color: [0, 0, 0]
-map_frame_rounding: 0
-map_padding: 2
-# option
-option_size: [150, 180]
-option_shape_offset: [15, 15]
-option_color: [255, 255, 255]
-option_image: null
-option_frame_width: 1
-option_frame_color: [0, 0, 0]
-option_frame_rounding: 0
-option_color_selected: [255, 255, 255]
-option_image_selected: null
-option_frame_width_selected: 4
-option_frame_color_selected: [0, 0, 0]
-option_frame_rounding_selected: 0
-option_coin_size: [20, 20]
-option_coin_offset: [65, 150]
-option_coin_color: [255, 215, 0]
-option_coin_frame_width: 2
-option_coin_frame_color: [0, 0, 0]
-option_coin_frame_rounding: 0
-option_coin_image: null
-# field
-field_size: 30
-field_ruin_overlay: "ruin.png"
-field_opacity: 255
-field_candidate_opacity: 150
-field_frame_color: [0, 0, 0]
-field_frame_width: 1
-field_frame_rounding: 0
-field_icon_size: [20, 20]
-field_icon_offset: [5, 5]
-field_icons:
-  village: null #"house.png"
-  water: null #"water.png"
-  forest: null #"tree.png"
-  farm: null #"field.png"
-  monster: null #"monster.png"
-  empty: null #"empty.png"
-  mountain: null #"mountain.png"
-  waste: null
-field_colors:
-  village: [204, 24, 24]
-  water: [47, 32, 179]
-  forest: [10, 120, 10]
-  farm: [245, 172, 2]
-  monster: [122, 16, 143]
-  empty: [219, 175, 132]
-  mountain: [104, 108, 110]
-  waste: [92, 92, 54]
-# next button
-next_button_size: [60, 90]
-next_button_color: [255, 255, 255]
-next_button_frame_width: 2
-next_button_frame_color: [0, 0, 0]
-next_button_frame_rounding: 0
-next_button_frame_image: null
-next_button_frame_image_size: null
-next_button_frame_image_offset: [0, 0]
-next_button_text: "Next"
+
+screen:
+  # screen has no position
+  size: [1000, 700]
+  color: [255, 255, 255]
+  image: null
+  image_size: null
+  image_offset: [0, 0]
+  frame_width: -1
+  frame_color: [0, 0, 0]
+  frame_rounding: 0
+  opacity: 255
+
+map:
+  position: [30, 30]
+  # map size is determined by field size
+  color: [255, 255, 255]
+  image: null
+  image_size: null
+  image_offset: [0, 0]
+  frame_width: 2
+  frame_color: [0, 0, 0]
+  frame_rounding: 0
+  padding: 2
+  opacity: 255
+
+option:
+  position: [30, 400]
+  normal:
+    size: [150, 180]
+    color: [255, 255, 255]
+    image: null
+    image_size: null
+    image_offset: [0, 0]
+    frame_width: 1
+    frame_color: [0, 0, 0]
+    frame_rounding: 0
+    opacity: 255
+  selected:
+    size: [150, 180]
+    color: [255, 255, 255]
+    image: null
+    image_size: null
+    image_offset: [0, 0]
+    frame_width: 4
+    frame_color: [0, 0, 0]
+    frame_rounding: 0
+    opacity: 255
+  spacing: 30
+  shape_offset: [15, 15]
+  coin:
+    offset: [65, 150]
+    size: [20, 20]
+    color: [255, 215, 0]
+    image: null
+    image_size: null
+    image_offset: [0, 0]
+    frame_width: 2
+    frame_color: [0, 0, 0]
+    frame_rounding: 0
+    opacity: 255
+
+single_option:
+  position: [30, 580]
+  normal:
+    size: [60, 60]
+    color: [255, 255, 255]
+    image: null
+    image_size: null
+    image_offset: [0, 0]
+    frame_width: 1
+    frame_color: [0, 0, 0]
+    frame_rounding: 0
+    opacity: 255
+  selected:
+    size: [60, 60]
+    color: [255, 255, 255]
+    image: null
+    image_size: null
+    image_offset: [0, 0]
+    frame_width: 4
+    frame_color: [0, 0, 0]
+    frame_rounding: 0
+    opacity: 255
+  shape_offset: [15, 15]
+  spacing: 30
+  
+field:
+  size: 30
+  colors:
+    village: [204, 24, 24]
+    water: [47, 32, 179]
+    forest: [10, 120, 10]
+    farm: [245, 172, 2]
+    monster: [122, 16, 143]
+    empty: [219, 175, 132]
+    mountain: [104, 108, 110]
+    waste: [92, 92, 54]
+  images:
+    village: null #"house.png"
+    water: null #"water.png"
+    forest: null #"tree.png"
+    farm: null #"field.png"
+    monster: null #"monster.png"
+    empty: null #"empty.png"
+    mountain: null #"mountain.png"
+    waste: null
+  image_size: [20, 20]
+  image_offset: [5, 5]
+  frame_width: 1
+  frame_color: [0, 0, 0]
+  frame_rounding: 0
+  opacity: 255
+  candidate_opacity: 150
+  ruin_overlay: "ruin.png"
+
+# options_background:
+
+# next button:
+#   size: [60, 90]
+#   color: [255, 255, 255]
+#   frame_width: 2
+#   frame_color: [0, 0, 0]
+#   frame_rounding: 0
+#   frame_image: null
+#   frame_image_size: null
+#   frame_image_offset: [0, 0]
+#   text: "Next"

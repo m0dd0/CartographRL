@@ -36,19 +36,18 @@ from .base import View
 logging.basicConfig(level=logging.DEBUG)
 
 
-def get_assets_path(base_path: Path, name: str):
-    """Get the path to an asset. If the name is None return None.
+def get_asset_path(image_name: str):
+    """Get the path to an asset.
 
     Args:
-        base_path (Path): Base path to the assets folder.
-        name (str): Name of the asset.
+        image_name (str): Name of the asset.
 
     Returns:
         Path: Path to the asset.
     """
-    if name is None:
+    if image_name is None:
         return None
-    return base_path / name
+    return Path(__file__).parent / "assets" / image_name
 
 
 class RectSurf(pygame.Surface):
@@ -116,8 +115,9 @@ class ImageRectSurf(pygame.Surface):
         frame_width: int,
         frame_rounding: int,
         image: Path,
-        image_size: Tuple[int, int] = None,
-        image_offset: Tuple[int, int] = (0, 0),
+        image_size: Tuple[int, int],
+        image_offset: Tuple[int, int],
+        opacity: int,
     ):
         """Create a surface with a rectangular frame, an optional infill and an image.
         As for nearly all UI elements we draw an image on a rect background this acts as a wrapper for the RectSurf and ImageSurf classes.
@@ -130,8 +130,8 @@ class ImageRectSurf(pygame.Surface):
             frame_width (int): Width of the frame.
             frame_rounding (int): Radius of the rounded corners.
             image (Path): Path to the image file.
-            image_size (Tuple[int, int], optional): Size of the image. Defaults to None.
-            image_offset (Tuple[int, int], optional): Offset of the image. Defaults to (0, 0).
+            image_size (Tuple[int, int], optional): Size of the image. If None, the size of the surface is used.
+            image_offset (Tuple[int, int], optional): Offset of the image.
         """
         super().__init__(size, pygame.SRCALPHA)
         self.fill((0, 0, 0, 0))
@@ -139,28 +139,11 @@ class ImageRectSurf(pygame.Surface):
             RectSurf(size, frame_color, frame_width, backgound_color, frame_rounding),
             (0, 0),
         )
+        image_size = image_size or size
         if image is not None:
             self.blit(ImageSurf(image_size, image), image_offset)
 
-
-class ScreenSprite(pygame.sprite.Sprite):
-    def __init__(self, style: Dict[str, Any]):
-        """Background sprite for the game screen.
-
-        Args:
-            style (Dict[str, Any]): Style dictionary.
-        """
-        self.image = ImageRectSurf(
-            style["screen_size"],
-            style["screen_color"],
-            style["screen_frame_color"],
-            style["screen_frame_width"],
-            style["screen_frame_rounding"],
-            get_assets_path(style["assets_folder"], style["screen_image"]),
-            style["screen_image_size"],
-            style["screen_image_offset"],
-        )
-        self.rect = self.image.get_rect()
+        self.set_alpha(opacity)
 
 
 class FieldSurf(ImageRectSurf):
@@ -180,31 +163,51 @@ class FieldSurf(ImageRectSurf):
             style (Dict[str, Any]): Style dictionary.
         """
         terrain = terrain.name.lower()
+        style = style["field"]
         super().__init__(
-            (style["field_size"], style["field_size"]),
-            style["field_colors"][terrain],
-            style["field_frame_color"],
-            style["field_frame_width"],
-            style["field_frame_rounding"],
-            get_assets_path(style["assets_folder"], style["field_icons"][terrain]),
-            style["field_icon_size"],
-            style["field_icon_offset"],
+            (style["size"], style["size"]),
+            style["colors"][terrain],
+            style["frame_color"],
+            style["frame_width"],
+            style["frame_rounding"],
+            get_asset_path(style["images"][terrain]),
+            style["image_size"],
+            style["image_offset"],
+            style["opacity"],
         )
         if ruin:
             self.blit(
                 ImageSurf(
-                    style["field_icon_size"],
-                    get_assets_path(
-                        style["assets_folder"], style["field_ruin_overlay"]
-                    ),
+                    style["image_size"],
+                    get_asset_path(style["ruin_overlay"]),
                 ),
-                style["field_icon_offset"],
+                style["image_offset"],
             )
 
         if candidate:
-            self.set_alpha(style["field_candidate_opacity"])
-        else:
-            self.set_alpha(style["field_opacity"])
+            self.set_alpha(style["candidate_opacity"])
+
+
+class ScreenSprite(pygame.sprite.Sprite):
+    def __init__(self, style: Dict[str, Any]):
+        """Background sprite for the game screen.
+
+        Args:
+            style (Dict[str, Any]): Style dictionary.
+        """
+        style = style["screen"]
+        self.image = ImageRectSurf(
+            style["size"],
+            style["color"],
+            style["frame_color"],
+            style["frame_width"],
+            style["frame_rounding"],
+            get_asset_path(style["image"]),
+            style["image_size"],
+            style["image_offset"],
+            style["opacity"],
+        )
+        self.rect = self.image.get_rect()
 
 
 class MapSprite(pygame.sprite.Sprite):
@@ -229,6 +232,7 @@ class MapSprite(pygame.sprite.Sprite):
         self._map_values = map_values
         self._ruin_coords = ruin_coords
         self._candidate_map_coords = frozenset()
+        self._candidate_terrain = None
         self._fixed_candidate = False
         self._style = style
 
@@ -238,17 +242,20 @@ class MapSprite(pygame.sprite.Sprite):
 
     def _build(self):
         """Builds the map surface depending on the current state of the map."""
+        style = self._style["map"]
         extent = (
-            len(self._map_values[0]) * self._style["field_size"]
-            + self._style["map_padding"] * 2
+            len(self._map_values[0]) * self._style["field_size"] + style["padding"] * 2
         )
         self.image = ImageRectSurf(
             (extent, extent),
-            self._style["map_color"],
-            self._style["map_frame_color"],
-            self._style["map_frame_width"],
-            self._style["map_frame_rounding"],
-            get_assets_path(self._style["assets_folder"], self._style["map_image"]),
+            style["color"],
+            style["frame_color"],
+            style["frame_width"],
+            style["frame_rounding"],
+            get_asset_path(style["image"]),
+            style["image_size"],
+            style["image_offset"],
+            style["opacity"],
         )
 
         for x, row in enumerate(self._map_values):
@@ -259,8 +266,8 @@ class MapSprite(pygame.sprite.Sprite):
                 self.image.blit(
                     field_surf,
                     (
-                        x * self._style["field_size"] + self._style["map_padding"],
-                        y * self._style["field_size"] + self._style["map_padding"],
+                        x * self._style["field"]["size"] + style["padding"],
+                        y * self._style["field"]["size"] + style["padding"],
                     ),
                 )
 
@@ -272,12 +279,13 @@ class MapSprite(pygame.sprite.Sprite):
             self.image.blit(
                 field_surf,
                 (
-                    x * self._style["field_size"] + self._style["map_padding"],
-                    y * self._style["field_size"] + self._style["map_padding"],
+                    x * self._style["field"]["size"] + style["padding"],
+                    y * self._style["field"]["size"] + style["padding"],
                 ),
             )
 
         self.rect = self.image.get_rect()
+        self.rect.topleft = style["position"]
 
     def get_mouse_grid_coords(self, mouse_pos: Tuple[int, int]) -> Tuple[int, int]:
         """Returns the grid coordinates of the field the mouse is currently over.
@@ -292,12 +300,12 @@ class MapSprite(pygame.sprite.Sprite):
 
         if not self.rect.collidepoint(mouse_pos):
             return None
-        x = (mouse_pos[0] - self.rect.x - self._style["map_padding"]) // self._style[
-            "field_size"
-        ]
-        y = (mouse_pos[1] - self.rect.y - self._style["map_padding"]) // self._style[
-            "field_size"
-        ]
+        x = (mouse_pos[0] - self.rect.x - self._style["map"]["padding"]) // self._style[
+            "field"
+        ]["size"]
+        y = (mouse_pos[1] - self.rect.y - self._style["map"]["padding"]) // self._style[
+            "field"
+        ]["size"]
         return x, y
 
     def candidate_position(self) -> Tuple[int, int]:
@@ -331,6 +339,15 @@ class MapSprite(pygame.sprite.Sprite):
     @candidate_map_coords.setter
     def candidate_map_coords(self, candidate_map_coords):
         self._candidate_map_coords = candidate_map_coords
+        self._build()
+
+    @property
+    def candidate_terrain(self):
+        return self._candidate_terrain
+
+    @candidate_terrain.setter
+    def candidate_terrain(self, candidate_terrain):
+        self._candidate_terrain = candidate_terrain
         self._build()
 
     @property
@@ -382,34 +399,25 @@ class OptionSprite(pygame.sprite.Sprite):
 
     def _build(self):
         """Builds the option surface depending on the current state of the option."""
-        size = self._style["option_size"]
+        option_style = self._style["option"]
         if isinstance(self._i_option, Terrains):
-            size = (
-                self._style["field_size"] + self._style["option_shape_offset"][0] * 2,
-                self._style["field_size"] + self._style["option_shape_offset"][1] * 2,
-            )
-        if not self._selected:
-            self.image = ImageRectSurf(
-                size,
-                self._style["option_color"],
-                self._style["option_frame_color"],
-                self._style["option_frame_width"],
-                self._style["option_frame_rounding"],
-                get_assets_path(
-                    self._style["assets_folder"], self._style["option_image"]
-                ),
-            )
-        else:
-            self.image = ImageRectSurf(
-                size,
-                self._style["option_color_selected"],
-                self._style["option_frame_color_selected"],
-                self._style["option_frame_width_selected"],
-                self._style["option_frame_rounding_selected"],
-                get_assets_path(
-                    self._style["assets_folder"], self._style["option_image_selected"]
-                ),
-            )
+            option_style = self._style["single_option"]
+
+        style = option_style["normal"]
+        if self._selected:
+            style = option_style["selected"]
+
+        self.image = ImageRectSurf(
+            style["size"],
+            style["color"],
+            style["frame_color"],
+            style["frame_width"],
+            style["frame_rounding"],
+            get_asset_path(style["image"]),
+            style["image_size"],
+            style["image_offset"],
+            style["opacity"],
+        )
 
         if not self._valid:
             self.image = pygame.transform.grayscale(self.image)
@@ -422,28 +430,29 @@ class OptionSprite(pygame.sprite.Sprite):
             self.image.blit(
                 field_surf,
                 (
-                    x * self._style["field_size"]
-                    + self._style["option_shape_offset"][0],
-                    y * self._style["field_size"]
-                    + self._style["option_shape_offset"][1],
+                    x * self._style["field"]["size"] + option_style["shape_offset"][0],
+                    y * self._style["field"]["size"] + option_style["shape_offset"][1],
                 ),
             )
 
         if not isinstance(self._i_option, Terrains):
+            coin_style = option_style["coin"]
             coin_surf = ImageRectSurf(
-                self._style["option_coin_size"],
-                self._style["option_coin_color"],
-                self._style["option_coin_frame_color"],
-                self._style["option_coin_frame_width"],
-                self._style["option_coin_frame_rounding"],
-                get_assets_path(
-                    self._style["assets_folder"], self._style["option_coin_image"]
-                ),
+                coin_style["size"],
+                coin_style["color"],
+                coin_style["frame_color"],
+                coin_style["frame_width"],
+                coin_style["frame_rounding"],
+                get_asset_path(coin_style["image"]),
+                coin_style["image_size"],
+                coin_style["image_offset"],
+                coin_style["opacity"],
             )
+
             if not self._coin:
                 coin_surf = pygame.transform.grayscale(coin_surf)
 
-            self.image.blit(coin_surf, self._style["option_coin_offset"])
+            self.image.blit(coin_surf, coin_style["offset"])
 
         self.rect = self.image.get_rect()
 
@@ -524,40 +533,48 @@ class OptionSprite(pygame.sprite.Sprite):
 
 class OptionsBackgroundSurf(ImageRectSurf):
     def __init__(self, name: str, time: int, style: Dict[str, Any]) -> None:
+        style = style["options_background"]
         super().__init__(
-            style["options_background_size"],
-            style["options_background_color"],
-            style["options_background_frame_color"],
-            style["options_background_frame_width"],
-            style["options_background_frame_rounding"],
-            get_assets_path(style["assets_folder"], style["options_background_image"]),
+            style["size"],
+            style["color"],
+            style["frame_color"],
+            style["frame_width"],
+            style["frame_rounding"],
+            get_asset_path(style["image"]),
+            style["image_size"],
+            style["image_offset"],
+            style["opacity"],
         )
 
         # TODO time and name
 
 
 class ScoreTableSprite(pygame.sprite.Sprite):
+    # TODO
     pass
 
 
 class NextButtonSprite(pygame.sprite.Sprite):
-    def __init__(self, clickable: bool, style) -> None:
-        self.image = ImageRectSurf(
-            style["next_button_size"],
-            style["next_button_color"],
-            style["next_button_frame_color"],
-            style["next_button_frame_width"],
-            style["next_button_frame_rounding"],
-            get_assets_path(style["assets_folder"], style["next_button_image"]),
-            style["next_button_image_size"],
-            style["next_button_image_offset"],
-        )
+    # def __init__(self, clickable: bool, style) -> None:
+    #     self.image = ImageRectSurf(
+    #         style["next_button_size"],
+    #         style["next_button_color"],
+    #         style["next_button_frame_color"],
+    #         style["next_button_frame_width"],
+    #         style["next_button_frame_rounding"],
+    #         get_asset_path(style["assets_folder"], style["next_button_image"]),
+    #         style["next_button_image_size"],
+    #         style["next_button_image_offset"],
+    #     )
 
-        if not clickable:
-            self.image = pygame.transform.grayscale(self.image)
+    #     if not clickable:
+    #         self.image = pygame.transform.grayscale(self.image)
+    # TODO
+    pass
 
 
 class InfoSprite(pygame.sprite.Sprite):
+    # TODO
     pass
 
 

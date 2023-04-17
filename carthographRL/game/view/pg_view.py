@@ -277,7 +277,7 @@ class MapSprite(pygame.sprite.Sprite):
         for x, y in self._candidate_map_coords:
             # TODO different display for fixed candidates
             field_surf = FieldSurf(
-                self.candidate_terrain, (x, y) in self._ruin_coords, True, self._style
+                self._candidate_terrain, (x, y) in self._ruin_coords, True, self._style
             )
             self.image.blit(
                 field_surf,
@@ -318,42 +318,13 @@ class MapSprite(pygame.sprite.Sprite):
             Tuple[int, int]: Origin position of the candidate field in pixels.
                 None if there are no candidate fields.
         """
-        if len(self.candidate_map_coords) == 0:
+        if not self.has_candidate():
             return None
 
-        x = min([x for x, _ in self.candidate_map_coords])
-        y = min([y for _, y in self.candidate_map_coords])
+        x = min([x for x, _ in self._candidate_map_coords])
+        y = min([y for _, y in self._candidate_map_coords])
 
         return x, y
-
-    @property
-    def map_values(self):
-        return self._map_values
-
-    @map_values.setter
-    def map_values(self, map_values):
-        self._map_values = map_values
-        self._build()
-
-    @property
-    def candidate_map_coords(self):
-        return self._candidate_map_coords
-
-    @candidate_map_coords.setter
-    def candidate_map_coords(self, candidate_map_coords):
-        self._candidate_map_coords = candidate_map_coords
-        if self._candidate_terrain is not None:
-            self._build()
-
-    @property
-    def candidate_terrain(self):
-        return self._candidate_terrain
-
-    @candidate_terrain.setter
-    def candidate_terrain(self, candidate_terrain):
-        self._candidate_terrain = candidate_terrain
-        if self._candidate_map_coords is not None:
-            self._build()
 
     @property
     def fixed_candidate(self):
@@ -363,6 +334,27 @@ class MapSprite(pygame.sprite.Sprite):
     def fixed_candidate(self, fixed_candidate):
         self._fixed_candidate = fixed_candidate
         self._build()
+
+    def update_candidate(
+        self, map_coords: FrozenSet[Tuple[int, int]], terrain: Terrains
+    ):
+        """Updates the candidate fields.
+
+        Args:
+            map_coords (FrozenSet[Tuple[int, int]]): Map coordinates of the candidate fields.
+            terrain (Terrains): Terrain of the candidate fields.
+        """
+        self._candidate_map_coords = map_coords
+        self._candidate_terrain = terrain
+        self._build()
+
+    def has_candidate(self) -> bool:
+        """Returns whether there are candidate fields.
+
+        Returns:
+            bool: Whether there are candidate fields.
+        """
+        return len(self._candidate_map_coords) > 0
 
 
 class OptionSprite(pygame.sprite.Sprite):
@@ -726,34 +718,45 @@ class PygameView(View):
             if current_selected_option_sprite is not None:
                 current_selected_option_sprite.selected = False
             option_sprite.selected = True
+            self._map_sprite.update_candidate(frozenset(), None)
+            self._map_sprite.fixed_candidate = False
 
-    def _on_map_click(self, game: CarthographersGame):
-        if self._map_sprite.candidate_map_coords is None:
+    def _on_map_click(self):
+        if (
+            not self._map_sprite.has_candidate()
+            or self._map_sprite.get_mouse_grid_coords(pygame.mouse.get_pos()) is None
+        ):
             return
+
         self._map_sprite.fixed_candidate = not self._map_sprite.fixed_candidate
 
     def _on_map_mouse_move(self, game: CarthographersGame):
         map_coord = self._map_sprite.get_mouse_grid_coords(pygame.mouse.get_pos())
         selected_option_sprite = self._selected_option_sprite()
-        if map_coord is None or selected_option_sprite is None:
+
+        if (
+            map_coord is None
+            or selected_option_sprite is None
+            or self._map_sprite.fixed_candidate
+            or not game.map_sheet.is_setable(
+                selected_option_sprite.shape_coords,
+                selected_option_sprite.rotation,
+                map_coord,
+                selected_option_sprite.mirror,
+                game.ruin,
+            )
+        ):
             return
 
-        if game.map_sheet.is_setable(
-            selected_option_sprite.shape_coords,
-            selected_option_sprite.rotation,
-            map_coord,
-            selected_option_sprite.mirror,
-            game.ruin,
-        ):
-            self._map_sprite.candidate_map_coords = (
-                game.map_sheet.transform_to_map_coords(
-                    selected_option_sprite.shape_coords,
-                    selected_option_sprite.rotation,
-                    map_coord,
-                    selected_option_sprite.mirror,
-                )
-            )
-            self._map_sprite.candidate_terrain = selected_option_sprite.terrain
+        self._map_sprite.update_candidate(
+            game.map_sheet.transform_to_map_coords(
+                selected_option_sprite.shape_coords,
+                selected_option_sprite.rotation,
+                map_coord,
+                selected_option_sprite.mirror,
+            ),
+            selected_option_sprite.terrain,
+        )
 
     def _on_mouse_move(self, game):
         hovered_sprites = self._sprites_under_mouse()
@@ -763,14 +766,14 @@ class PygameView(View):
     def _on_next_button_click(self):
         pass
 
-    def _on_mouse_click(self, game: CarthographersGame):
+    def _on_mouse_click(self):
         clicked_sprites = self._sprites_under_mouse()
         for s in clicked_sprites:
             if s in self._option_sprites:
                 self._on_option_click(s)
 
             if s == self._map_sprite:
-                self._on_map_click(game)
+                self._on_map_click()
 
             if s == self._next_button_sprite:
                 self._on_next_button_click()
@@ -788,7 +791,7 @@ class PygameView(View):
             if event.type == pygame.QUIT:
                 self._closed = True
             if event.type == pygame.MOUSEBUTTONUP:
-                self._on_mouse_click(game)
+                self._on_mouse_click()
             if event.type == pygame.KEYDOWN:
                 self._on_key_press(event.key)
         self._on_mouse_move(game)

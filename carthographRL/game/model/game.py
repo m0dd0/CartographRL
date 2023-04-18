@@ -84,7 +84,7 @@ class CarthographersGame:
             shape_coords (FrozenSet[Tuple[Int, Int]]): The shape coordinates of the monster.
         """
         setable_options = list(
-            self.map_sheet.setable_options(shape_coords, on_ruin=False)
+            self.map_sheet.setable_actions(shape_coords, on_ruin=False)
         )
         rotation, position, mirror = setable_options[
             self._rng.integers(len(setable_options))
@@ -116,7 +116,7 @@ class CarthographersGame:
             shape_coords (FrozenSet[Tuple[int, int]]): The shape coordinates of the monster.
         """
         setable_options = list(
-            self.map_sheet.setable_options(shape_coords, on_ruin=False)
+            self.map_sheet.setable_actions(shape_coords, on_ruin=False)
         )
         best_opt = max(
             setable_options,

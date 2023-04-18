@@ -71,6 +71,14 @@ class Map:
         # ruins are not a terrain, but a special case
         self.ruin_coords = ruin_coords
 
+        self._all_action_tuples = [
+            (x, y, r, m)
+            for x in range(self.terrain_map.shape[0])
+            for y in range(self.terrain_map.shape[1])
+            for r in range(4)
+            for mirror in [False, True]
+        ]
+
     def transform_to_map_coords(
         self,
         shape_coords: FrozenSet[Tuple[int, int]],
@@ -112,125 +120,60 @@ class Map:
 
         return frozenset(shape_coords)
 
-    def transform_to_cluster(
-        self,
-        shape_coords: FrozenSet[Tuple[int, int]],
-        rotation: int,
-        position: Tuple[int, int],
-        mirror: bool,
-    ) -> "Cluster":
-        """Same as transform_to_map_coords, but returns a Cluster object.
-
-        Args:
-            shape_coords (FrozenSet[Tuple[int, int]]): The coordinates of the piece, i.e. its shape. (NOT the map coordinates)
-            rotation (int): The rotation of the piece in mulitples of 90 degrees. (1=90deg, 2=180deg, ...)
-            position (Tuple[int, int]): The position of the piece.
-            mirror (bool): Whether the piece is mirrored.
-
-        Returns:
-            Cluster: The transformed coordinates as a cluster object.
-        """
-        cluster_coords = self.transform_to_map_coords(
-            shape_coords, rotation, position, mirror
-        )
-        return Cluster(cluster_coords, self)
-
     def place(
-        self,
-        shape_coords: FrozenSet[Tuple[int, int]],
-        terrain: Terrains,
-        rotation: int,
-        position: Tuple[int, int],
-        mirror: bool,
-        on_ruin: bool,
+        self, map_coords: FrozenSet[Tuple[int, int]], terrain: Terrains, on_ruin: bool
     ):
         """Places a piece on the map. Validates the move.
 
         Args:
-            coords (FrozenSet[Tuple[int, int]]): The original coordinates of the piece,
-                i.e. its shape. (NOT the map coordinates)
+            coords (FrozenSet[Tuple[int, int]]): The map coordinates of all fields of the piece.
             terrain (Terrains): The terrain of the piece.
-            rotation (int): The rotation of the piece in mulitples of 90 degrees. (1=90deg, 2=180deg, ...)
-            position (Tuple[int, int]): The position of the piece.
-            mirror (bool): Whether the piece is mirrored.
             on_ruin (bool): Whether the piece must be placed on a ruin.
 
         Raises:
             InvalidMoveError: If the piece cannot be placed on the map.
         """
-        cluster = self.transform_to_cluster(shape_coords, rotation, position, mirror)
-        cluster.is_valid(on_ruin)
-        x_idx, y_idx = zip(*cluster.coords)
+        if not self.is_setable(map_coords, on_ruin):
+            raise InvalidMoveError("Invalid move.")
+        x_idx, y_idx = zip(*map_coords)
         self.terrain_map[x_idx, y_idx] = terrain.value
 
-    def is_setable(
-        self,
-        coords: FrozenSet[Tuple[int, int]],
-        rotation: int,
-        position: Tuple[int, int],
-        mirror: bool,
-        on_ruin: bool,
-    ):
+    def is_setable(self, map_coords: FrozenSet[Tuple[int, int]], on_ruin: bool):
         """Checks if an intended move is valid.
 
         Args:
-            coords (FrozenSet[Tuple[int, int]]): The original coordinates of the piece,
-                i.e. its shape. (NOT the map coordinates)
-            rotation (int): The rotation of the piece in mulitples of 90 degrees. (1=90deg, 2=180deg, ...)
-            position (): The position of the piece.
-            mirror (bool): Whether the piece is mirrored.
+            coords (FrozenSet[Tuple[int, int]]): The map coordinates of all fields of the piece.
             on_ruin (bool): Whether the piece must be placed on a ruin.
 
         Returns:
             bool: Whether the move is valid.
         """
-        cluster = self.transform_to_cluster(coords, rotation, position, mirror)
-        return cluster.is_valid(on_ruin, raise_error=False)
+        return Cluster(map_coords, self).is_valid(on_ruin)
 
-    def setable_options(
-        self, shape_coords: FrozenSet[Tuple[int, int]], on_ruin: bool
-    ) -> Generator[int, Tuple[int, int], bool]:
-        """Returns all valid options which result in a valid move.
-        Note that some options may lead to the same move.
+    def setable_map_coords(self, map_coords, on_ruin: bool):
+        for x, y, r, m in self._all_action_tuples:
+            map_coords = self.transform_to_map_coords(self.shape_coords, r, (x, y), m)
+            if self.is_setable(map_coords, on_ruin):
+                yield map_coords
 
-        Args:
-            coords (FrozenSet[Tuple[int, int]]): The original coordinates of the piece,
-                i.e. its shape. (NOT the map coordinates)
-            on_ruin (bool): Whether the piece must be placed on a ruin.
-
-        Yields:
-            Tuple[int, Tuple[int, int], bool]: The possible placements. (rotation, position, mirror)
-        """
-        for x in range(self.terrain_map.shape[0]):
-            for y in range(self.terrain_map.shape[1]):
-                for r in range(4):
-                    for mirror in [False, True]:
-                        if self.is_setable(shape_coords, r, (x, y), mirror, on_ruin):
-                            yield (r, (x, y), mirror)
-
-    # def setable_clusters(
+    # def setable_actions(
     #     self, shape_coords: FrozenSet[Tuple[int, int]], on_ruin: bool
-    # ) -> FrozenSet["Cluster"]:
-    #     """Returns all possible results of valid moves.
+    # ) -> Generator[int, Tuple[int, int], bool]:
+    #     """Returns all valid options which result in a valid move.
+    #     Note that some options may lead to the same move.
 
     #     Args:
     #         coords (FrozenSet[Tuple[int, int]]): The original coordinates of the piece,
     #             i.e. its shape. (NOT the map coordinates)
     #         on_ruin (bool): Whether the piece must be placed on a ruin.
 
-    #     Returns:
-    #         FrozenSet[Cluster]: The possible placements.
+    #     Yields:
+    #         Tuple[int, Tuple[int, int], bool]: The possible placements. (rotation, position, mirror)
     #     """
-    #     setable_options = self.setable_options(shape_coords, on_ruin=on_ruin)
-
-    #     setable_clusters = frozenset(
-    #         {
-    #             self.transform_to_cluster(shape_coords, rotation, position, mirror)
-    #             for rotation, position, mirror in setable_options
-    #         }
-    #     )
-
-    #     return setable_clusters
+    #     for x, y, r, mirror in self._all_action_tuples:
+    #         map_coords = self.transform_to_map_coords(shape_coords, r, (x, y), mirror)
+    #         if self.is_setable(map_coords, on_ruin):
+    #             yield (x, y, r, mirror)
 
     def is_setable_anywhere(
         self,
@@ -248,7 +191,7 @@ class Map:
             bool: Whether the piece can be placed anywhere on the map.
         """
         try:
-            next(self.setable_options(coords, on_ruin))
+            next(self.setable_actions(coords, on_ruin))
             return True
         except StopIteration:
             return False
@@ -406,35 +349,20 @@ class Cluster:
             for coord in self.coords
         )
 
-    def is_valid(self, on_ruin: bool, raise_error: bool = False) -> bool:
+    def is_valid(self, on_ruin: bool) -> bool:
         """Validates the cluster, i.e. checks whether it is on the map, not occupied and on a ruin if required.
 
         Args:
             on_ruin (bool): Whether the cluster must be on a ruin.
-            raise_error (bool, optional): Whether to raise an error if the cluster is invalid. Defaults to False.
-
-        Raises:
-            InvalidMoveError: If the cluster is invalid and raise_error is True.
 
         Returns:
             bool: Whether the cluster is valid.
         """
-        if not self.on_map():
-            if raise_error:
-                raise InvalidMoveError("At least one of the fields is out of bounds.")
-            return False
-
-        if self.is_occupied():
-            if raise_error:
-                raise InvalidMoveError("At least one of the fields is not empty.")
-            return False
-
-        if on_ruin and not self.on_ruin():
-            if raise_error:
-                raise InvalidMoveError("At least one of the fields must be on a ruin.")
-            return False
-
-        return True
+        return (
+            self.on_map()
+            and not self.is_occupied()
+            and (self.on_ruin() if on_ruin else True)
+        )
 
     def __len__(self):
         return len(self.coords)

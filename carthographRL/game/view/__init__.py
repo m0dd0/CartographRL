@@ -1,1 +1,1 @@
-from .pg_view import PygameView
+from .pg_view.view import PygameView

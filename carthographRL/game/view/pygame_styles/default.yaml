@@ -27,26 +27,15 @@ map:
 
 option:
   position: [30, 400]
-  normal:
-    size: [150, 180]
-    color: [255, 255, 255]
-    image: null
-    image_size: null
-    image_offset: [0, 0]
-    frame_width: 1
-    frame_color: [0, 0, 0]
-    frame_rounding: 0
-    opacity: 255
-  selected:
-    size: [150, 180]
-    color: [255, 255, 255]
-    image: null
-    image_size: null
-    image_offset: [0, 0]
-    frame_width: 4
-    frame_color: [0, 0, 0]
-    frame_rounding: 0
-    opacity: 255
+  size: [150, 180]
+  color: [255, 255, 255]
+  image: null
+  image_size: null
+  image_offset: [0, 0]
+  frame_width: 1
+  frame_color: [0, 0, 0]
+  frame_rounding: 0
+  opacity: 255
   spacing: 30
   shape_offset: [15, 15]
   coin:
@@ -63,26 +52,15 @@ option:
 
 single_option:
   position: [30, 610]
-  normal:
-    size: [60, 60]
-    color: [255, 255, 255]
-    image: null
-    image_size: null
-    image_offset: [0, 0]
-    frame_width: 1
-    frame_color: [0, 0, 0]
-    frame_rounding: 0
-    opacity: 255
-  selected:
-    size: [60, 60]
-    color: [255, 255, 255]
-    image: null
-    image_size: null
-    image_offset: [0, 0]
-    frame_width: 4
-    frame_color: [0, 0, 0]
-    frame_rounding: 0
-    opacity: 255
+  size: [60, 60]
+  color: [255, 255, 255]
+  image: null
+  image_size: null
+  image_offset: [0, 0]
+  frame_width: 1
+  frame_color: [0, 0, 0]
+  frame_rounding: 0
+  opacity: 255
   shape_offset: [15, 15]
   spacing: 30
   

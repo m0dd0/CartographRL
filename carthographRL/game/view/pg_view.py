@@ -1,4 +1,4 @@
-from typing import Tuple, List, FrozenSet, Dict, Any, Union
+from typing import Tuple, List, FrozenSet, Dict, Any, Union, Set
 from pathlib import Path
 import logging
 
@@ -9,29 +9,6 @@ from mergedeep import merge
 from ..model import CarthographersGame
 from ..model.general import Terrains
 from .base import View
-
-### DESIGN DECISIONS ###
-# there are 3 geneal options to implement the view:
-# - use a seperate sprite for everything (every field is a sprite, the grid is a sprite, the background is a sprite, the options are a sprite, the elements in the score table are sprites, ...)
-#       - most flexible, can use pointcollide to check if mouse is in a sprite for all elements
-#       - we need to keep track of all sprites and delete/update/add them when necessary
-# use a seperate surface for everything (every field is a surface, the grid is a surface, the background is a surface, the options are a surface, the elements in the score table are surfaces, ...)
-#       - all (point)collision management must be done manually
-# use view sprites whose surface consistes of different more elementary surfaces (e.g. a map sprite whose surface consists of a background surface, a grid surface, and a surface for each field)
-#       - only areas which might be clicked need to be checked for collision so we need only sprites for these few areas
-# --> use sprite for each clickable/hoverable area: map, score table, each option, info field, next button
-
-# use .png assets instead of .svg as it is easier to load them into pygame
-
-# management of style parameters:
-# - parameters must be stored in a seperate file as we want to allow for different styles
-# - the style arguments are passed to the view as a dictionary to allow for flexible changing of the style (alternative would be to load the style globally)
-# - as styled subelements are initialised in styled elements the passed style parameter must contain not only the style parameters for the styled element but also the style parameters for the subelements
-# - however subelements might also occur in other styled elements so we can not nest the subelement style into the element style
-# - therefore the most practical solution is to pass the whole style dictionary to each element and let the element decide which style parameters it needs
-# - the nesting strucuture of the style dictionary is NOT necessarily the same as the nesting structure of the elements
-# - as we have many style parameters nesting is preferrred over a flat structure TODO
-###
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -151,8 +128,7 @@ class FieldSurf(ImageRectSurf):
         self,
         terrain: Terrains,
         ruin: bool,
-        candidate: bool,
-        style: Dict[str, Any],
+        field_style: Dict[str, Any],
     ) -> None:
         """Surface of a singel field in the map or option card.
 
@@ -160,56 +136,152 @@ class FieldSurf(ImageRectSurf):
             terrain (Terrains): Terrain of the field.
             ruin (bool): Whether the field is a ruin.
             candidate (bool): Whether the field is a candidate for a move (opposed to already set field)
-            style (Dict[str, Any]): Style dictionary.
+            style (Dict[str, Any]): Style dictionary. Must contain the following keys:
+                - size (int): Size of the field in pixels.
+                - colors (Dict[str, Tuple[int, int, int]]): Colors of the fields.
+                - frame_color (Tuple[int, int, int]): Color of the frame.
+                - frame_width (int): Width of the frame.
+                - frame_rounding (int): Radius of the rounded corners.
+                - images (Dict[str, str]): Paths to the images of the fields.
+                - image_size (Tuple[int, int]): Size of the image.
+                - image_offset (Tuple[int, int]): Offset of the image.
+                - opacity (int): Opacity of the field.
+                - ruin_overlay (str): Path to the image of the ruin overlay.
         """
         terrain = terrain.name.lower()
-        style = style["field"]
         super().__init__(
-            (style["size"], style["size"]),
-            style["colors"][terrain],
-            style["frame_color"],
-            style["frame_width"],
-            style["frame_rounding"],
-            get_asset_path(style["images"][terrain]),
-            style["image_size"],
-            style["image_offset"],
-            style["opacity"],
+            (field_style["size"], field_style["size"]),
+            field_style["colors"][terrain],
+            field_style["frame_color"],
+            field_style["frame_width"],
+            field_style["frame_rounding"],
+            get_asset_path(field_style["images"][terrain]),
+            field_style["image_size"],
+            field_style["image_offset"],
+            field_style["opacity"],
         )
         if ruin:
             self.blit(
                 ImageSurf(
-                    style["image_size"],
-                    get_asset_path(style["ruin_overlay"]),
+                    field_style["image_size"],
+                    get_asset_path(field_style["ruin_overlay"]),
                 ),
-                style["image_offset"],
+                field_style["image_offset"],
             )
 
-        if candidate:
-            self.set_alpha(style["candidate_opacity"])
+
+class AreaSurf(pygame.Surface):
+    def __init__(
+        self,
+        shape_coords: FrozenSet[Tuple[int, int]],
+        terrain: Terrains,
+        frame_width: int,
+        frame_color: Tuple[int, int, int],
+        field_style: Dict[str, Any],
+    ):
+        """Surface of a singel area in the map or option card.
+
+        Args:
+            shape_coords (Frozenset[Tuple[int, int]]): List of coordinates of the area.
+            terrain (Terrains): Terrain of the area. If None, only the frame is drawn.
+            frame_width (int): Width of the frame.
+            frame_color (Tuple[int, int, int]): Color of the frame.
+            field_style: (Dict[str, Any]): Style dictionary for the fields.
+        """
+        super().__init__(
+            (max(c[0] for c in shape_coords), max(c[1] for c in shape_coords)),
+            pygame.SRCALPHA,
+        )
+        self.fill((0, 0, 0, 0))
+
+        edges = set()
+        for x, y in shape_coords:
+            top_edge = ((x, y), (x + 1, y))
+            bottom_edge = ((x, y + 1), (x + 1, y + 1))
+            left_edge = ((x, y), (x, y + 1))
+            right_edge = ((x + 1, y), (x + 1, y + 1))
+
+            top = (x - 1, y)
+            bottom = (x - 1, y)
+            left = (x, y - 1)
+            right = (x, y + 1)
+
+            if top not in shape_coords:
+                edges.add(top_edge)
+            if bottom not in shape_coords:
+                edges.add(bottom_edge)
+            if left not in shape_coords:
+                edges.add(left_edge)
+            if right not in shape_coords:
+                edges.add(right_edge)
+
+        for edge in edges:
+            pygame.draw.line(
+                self,
+                frame_color,
+                (edge[0][0] * field_style["size"], edge[0][1] * field_style["size"]),
+                (edge[1][0] * field_style["size"], edge[1][1] * field_style["size"]),
+                frame_width,
+            )
+
+        if terrain is not None:
+            for x, y in shape_coords:
+                field_surf = FieldSurf(terrain, False, field_style)
+                self.blit(
+                    field_surf, (x * field_style["size"], y * field_style["size"])
+                )
 
 
 class ScreenSprite(pygame.sprite.Sprite):
-    def __init__(self, style: Dict[str, Any]):
+    def __init__(self, screen_style: Dict[str, Any]):
         """Background sprite for the game screen.
 
         Args:
-            style (Dict[str, Any]): Style dictionary.
+            screen_style (Dict[str, Any]): Style dictionary. Must contain the following keys:
+                - size (Tuple[int, int]): Size of the screen in pixels.
+                - color (Tuple[int, int, int]): Color of the screen.
+                - frame_color (Tuple[int, int, int]): Color of the frame.
+                - frame_width (int): Width of the frame.
+                - frame_rounding (int): Radius of the rounded corners.
+                - image (str): Path to the image of the screen.
+                - image_size (Tuple[int, int]): Size of the image.
+                - image_offset (Tuple[int, int]): Offset of the image.
+                - opacity (int): Opacity of the screen.
         """
-        style = style["screen"]
         self.image = ImageRectSurf(
-            style["size"],
-            style["color"],
-            style["frame_color"],
-            style["frame_width"],
-            style["frame_rounding"],
-            get_asset_path(style["image"]),
-            style["image_size"],
-            style["image_offset"],
-            style["opacity"],
+            screen_style["size"],
+            screen_style["color"],
+            screen_style["frame_color"],
+            screen_style["frame_width"],
+            screen_style["frame_rounding"],
+            get_asset_path(screen_style["image"]),
+            screen_style["image_size"],
+            screen_style["image_offset"],
+            screen_style["opacity"],
         )
         self.rect = self.image.get_rect()
 
         self.rect.topleft = (0, 0)
+
+
+class CandidateSprite(pygame.sprite.Sprite):
+    def __init__(
+        self,
+        shape_coords,
+        terrain,
+        candidate_style: Dict[str, Any],
+        field_style: Dict[str, Any],
+    ):
+        """Sprite for the potentially movable area.
+
+        Args:
+        """
+        super().__init__()
+
+        self._style = candidate_style
+        self.image = AreaSurf(
+            shape_coords, terrain, style["frame_width"], style["frame_color"]
+        )
 
 
 class MapSprite(pygame.sprite.Sprite):
@@ -233,9 +305,6 @@ class MapSprite(pygame.sprite.Sprite):
         self._style = style
         self._map_values = map_values
         self._ruin_coords = ruin_coords
-        self._candidate_map_coords = frozenset()
-        self._candidate_terrain = None
-        self._fixed_candidate = False
         self._style = style
 
         self.image = None
@@ -274,19 +343,6 @@ class MapSprite(pygame.sprite.Sprite):
                     ),
                 )
 
-        for x, y in self._candidate_map_coords:
-            # TODO different display for fixed candidates
-            field_surf = FieldSurf(
-                self._candidate_terrain, (x, y) in self._ruin_coords, True, self._style
-            )
-            self.image.blit(
-                field_surf,
-                (
-                    x * self._style["field"]["size"] + style["padding"],
-                    y * self._style["field"]["size"] + style["padding"],
-                ),
-            )
-
         self.rect = self.image.get_rect()
         self.rect.topleft = style["position"]
 
@@ -311,50 +367,25 @@ class MapSprite(pygame.sprite.Sprite):
         ]["size"]
         return x, y
 
-    def candidate_position(self) -> Tuple[int, int]:
-        """Returns the origin position of the candidate field in pixels.
+    @property
+    def map_values(self) -> List[List[Terrains]]:
+        """List[List[Terrains]]: Map values."""
+        return self._map_values
 
-        Returns:
-            Tuple[int, int]: Origin position of the candidate field in pixels.
-                None if there are no candidate fields.
-        """
-        if not self.has_candidate():
-            return None
-
-        x = min([x for x, _ in self._candidate_map_coords])
-        y = min([y for _, y in self._candidate_map_coords])
-
-        return x, y
+    @map_values.setter
+    def map_values(self, map_values: List[List[Terrains]]) -> None:
+        self._map_values = map_values
+        self._build()
 
     @property
-    def fixed_candidate(self):
-        return self._fixed_candidate
+    def ruin_coords(self) -> FrozenSet[Tuple[int, int]]:
+        """FrozenSet[Tuple[int, int]]: Coordinates of the ruins."""
+        return self._ruin_coords
 
-    @fixed_candidate.setter
-    def fixed_candidate(self, fixed_candidate):
-        self._fixed_candidate = fixed_candidate
+    @ruin_coords.setter
+    def ruin_coords(self, ruin_coords: FrozenSet[Tuple[int, int]]) -> None:
+        self._ruin_coords = ruin_coords
         self._build()
-
-    def update_candidate(
-        self, map_coords: FrozenSet[Tuple[int, int]], terrain: Terrains
-    ):
-        """Updates the candidate fields.
-
-        Args:
-            map_coords (FrozenSet[Tuple[int, int]]): Map coordinates of the candidate fields.
-            terrain (Terrains): Terrain of the candidate fields.
-        """
-        self._candidate_map_coords = map_coords
-        self._candidate_terrain = terrain
-        self._build()
-
-    def has_candidate(self) -> bool:
-        """Returns whether there are candidate fields.
-
-        Returns:
-            bool: Whether there are candidate fields.
-        """
-        return len(self._candidate_map_coords) > 0
 
 
 class OptionSprite(pygame.sprite.Sprite):
@@ -389,7 +420,6 @@ class OptionSprite(pygame.sprite.Sprite):
         self._i_option = option_index
         self._rotation = 0
         self._mirror = False
-        self._selected = False
         self._option_col = option_col
         self._style = style
 
@@ -399,13 +429,9 @@ class OptionSprite(pygame.sprite.Sprite):
 
     def _build(self):
         """Builds the option surface depending on the current state of the option."""
-        option_style = self._style["option"]
+        style = self._style["option"]
         if isinstance(self._i_option, Terrains):
-            option_style = self._style["single_option"]
-
-        style = option_style["normal"]
-        if self._selected:
-            style = option_style["selected"]
+            style = self._style["single_option"]
 
         self.image = ImageRectSurf(
             style["size"],
@@ -422,18 +448,19 @@ class OptionSprite(pygame.sprite.Sprite):
         coords = self._transform_shape_coords(
             self.shape_coords, self._mirror, self._rotation
         )
-        for x, y in coords:
-            field_surf = FieldSurf(self._terrain, False, False, self._style)
-            self.image.blit(
-                field_surf,
-                (
-                    x * self._style["field"]["size"] + option_style["shape_offset"][0],
-                    y * self._style["field"]["size"] + option_style["shape_offset"][1],
-                ),
-            )
+        self.image.blit(
+            AreaFrameSurf(
+                coords,
+                self._terrain,
+                style["candidate_frame_width"],
+                style["candidate_frame_color"],
+                self._style["field"]["size"],
+            ),
+            style["shape_offset"],
+        )
 
         if not isinstance(self._i_option, Terrains):
-            coin_style = option_style["coin"]
+            coin_style = style["coin"]
             coin_surf = ImageRectSurf(
                 coin_style["size"],
                 coin_style["color"],
@@ -456,9 +483,9 @@ class OptionSprite(pygame.sprite.Sprite):
 
         self.rect = self.image.get_rect()
         self.rect.topleft = (
-            option_style["position"][0]
-            + self._option_col * (style["size"][0] + option_style["spacing"]),
-            option_style["position"][1],
+            style["position"][0]
+            + self._option_col * (style["size"][0] + style["spacing"]),
+            style["position"][1],
         )
 
     def _transform_shape_coords(
@@ -515,15 +542,6 @@ class OptionSprite(pygame.sprite.Sprite):
         self._build()
 
     @property
-    def selected(self):
-        return self._selected
-
-    @selected.setter
-    def selected(self, selected):
-        self._selected = selected
-        self._build()
-
-    @property
     def valid(self):
         return self._valid
 
@@ -538,6 +556,13 @@ class OptionSprite(pygame.sprite.Sprite):
     @property
     def terrain(self):
         return self._terrain
+
+    @property
+    def shape_position(self):
+        return (
+            self.rect.topleft[0] + self._style["option"]["shape_offset"][0],
+            self.rect.topleft[1] + self._style["option"]["shape_offset"][1],
+        )
 
 
 class OptionsBackgrounSprite(pygame.sprite.Sprite):
@@ -615,6 +640,7 @@ class PygameView(View):
         self._map_sprite = None
         self._options_background_sprite = None
         self._option_sprites = []
+        self_candidate_sprites = []
         self._score_table_sprite = None
         self._next_button_sprite = None
 
@@ -650,13 +676,6 @@ class PygameView(View):
         ] + self._option_sprites
 
         return sprites
-
-    def _selected_option_sprite(self) -> OptionSprite:
-        for os in self._option_sprites:
-            if os.selected:
-                return os
-
-        return None
 
     def _sprites_under_mouse(self) -> Tuple[int, int]:
         mouse_pos = pygame.mouse.get_pos()
@@ -705,6 +724,15 @@ class PygameView(View):
             )
             self._option_sprites.append(single_option_sprite)
 
+    def _build_candidate_sprites(self):
+        self._candidate_sprites = []
+        for os in self._option_sprites:
+            candidate_sprite = CandidateSprite(
+                os.transformed_coords,
+                os.terrain,
+            )
+            self._candidate_sprites.append(candidate_sprite)
+
     def _build_map_sprite(self, game: CarthographersGame):
         self._map_sprite = MapSprite(
             game.map_sheet.to_list(),
@@ -712,56 +740,9 @@ class PygameView(View):
             self.style,
         )
 
-    def _on_option_click(self, option_sprite: OptionSprite):
-        if option_sprite.valid and not option_sprite.selected:
-            current_selected_option_sprite = self._selected_option_sprite()
-            if current_selected_option_sprite is not None:
-                current_selected_option_sprite.selected = False
-            option_sprite.selected = True
-            self._map_sprite.update_candidate(frozenset(), None)
-            self._map_sprite.fixed_candidate = False
-
-    def _on_map_click(self):
-        if (
-            not self._map_sprite.has_candidate()
-            or self._map_sprite.get_mouse_grid_coords(pygame.mouse.get_pos()) is None
-        ):
-            return
-
-        self._map_sprite.fixed_candidate = not self._map_sprite.fixed_candidate
-
-    def _on_map_mouse_move(self, game: CarthographersGame):
-        map_coord = self._map_sprite.get_mouse_grid_coords(pygame.mouse.get_pos())
-        selected_option_sprite = self._selected_option_sprite()
-
-        if (
-            map_coord is None
-            or selected_option_sprite is None
-            or self._map_sprite.fixed_candidate
-            or not game.map_sheet.is_setable(
-                selected_option_sprite.shape_coords,
-                selected_option_sprite.rotation,
-                map_coord,
-                selected_option_sprite.mirror,
-                game.ruin,
-            )
-        ):
-            return
-
-        self._map_sprite.update_candidate(
-            game.map_sheet.transform_to_map_coords(
-                selected_option_sprite.shape_coords,
-                selected_option_sprite.rotation,
-                map_coord,
-                selected_option_sprite.mirror,
-            ),
-            selected_option_sprite.terrain,
-        )
-
     def _on_mouse_move(self, game):
-        hovered_sprites = self._sprites_under_mouse()
-        if self._map_sprite in hovered_sprites:
-            self._on_map_mouse_move(game)
+        if self.selected_candidate_sprite() is not None:
+            selected_candidate_sprite.move_to(self._map_sprite.candidate_position())
 
     def _on_next_button_click(self):
         pass

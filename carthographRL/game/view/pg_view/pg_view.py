@@ -6,9 +6,9 @@ import pygame
 import yaml
 from mergedeep import merge
 
-from ..model import CarthographersGame
-from ..model.general import Terrains
-from .base import View
+from ...model import CarthographersGame
+from ...model.general import Terrains
+from ..base import View
 
 logging.basicConfig(level=logging.DEBUG)
 

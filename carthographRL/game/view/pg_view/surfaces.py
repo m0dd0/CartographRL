@@ -1,6 +1,9 @@
 """Contains subclasses of pygame.Surface that are used to draw the UI elements.
 These subclasses always act as a alternate constructor for the pygame.Surface class
-and do not provide any additional functionality or attributes."""
+and do not provide any additional functionality or attributes.
+Surfaces have no position. To draw them onto the screen thy should be encapsulated into a Sprite.
+As some surfaces are used in different sprite classes they are defined here so that they can be reused.
+On the other hand sprites should contain as less drawing logic as possible."""
 
 from typing import Tuple, FrozenSet, Dict, Any
 from pathlib import Path

@@ -6,7 +6,7 @@ import numpy as np
 
 from .general import InvalidMoveError, CardDeck, Terrains
 from .scoring import ScoringDeck, SCORING_CARDS
-from .map import Map
+from .map import Map, Cluster
 from .exploration import (
     ExplorationCard,
     ExplorationOption,
@@ -83,15 +83,11 @@ class CarthographersGame:
         Args:
             shape_coords (FrozenSet[Tuple[Int, Int]]): The shape coordinates of the monster.
         """
-        setable_options = list(
-            self.map_sheet.setable_actions(shape_coords, on_ruin=False)
+        setable_map_coords = list(
+            self.map_sheet.setable_map_coords(shape_coords, on_ruin=False)
         )
-        rotation, position, mirror = setable_options[
-            self._rng.integers(len(setable_options))
-        ]
-        self.map_sheet.place(
-            shape_coords, Terrains.MONSTER, rotation, position, mirror, on_ruin=False
-        )
+        monster_coords = setable_map_coords[self._rng.integers(len(setable_map_coords))]
+        self.map_sheet.place(monster_coords, Terrains.MONSTER, on_ruin=False)
 
     def _set_monster_solo(
         self,
@@ -115,25 +111,16 @@ class CarthographersGame:
         Args:
             shape_coords (FrozenSet[Tuple[int, int]]): The shape coordinates of the monster.
         """
-        setable_options = list(
-            self.map_sheet.setable_actions(shape_coords, on_ruin=False)
+        setable_map_coords = list(
+            self.map_sheet.setable_map_coords(shape_coords, on_ruin=False)
         )
-        best_opt = max(
-            setable_options,
-            key=lambda opt: self.map_sheet.transform_to_cluster(
-                shape_coords, opt[0], opt[1], opt[2]
-            )
+        best_coords = max(
+            setable_map_coords,
+            key=lambda opt: Cluster(setable_map_coords, self.map_sheet)
             .surrounding_terrains()
             .count(Terrains.EMPTY.value),
         )
-        self.map_sheet.place(
-            shape_coords,
-            Terrains.MONSTER,
-            best_opt[0],
-            best_opt[1],
-            best_opt[2],
-            on_ruin=False,
-        )
+        self.map_sheet.place(best_coords, Terrains.MONSTER, on_ruin=False)
 
     def _set_monster(self, monster_card: MonsterCard):
         """Places the monster on the map sheet according to the current monster mode.
@@ -196,36 +183,27 @@ class CarthographersGame:
                 self._set_monster(drawn_card)
             elif isinstance(drawn_card, ExplorationCard):
                 self.exploration_card = drawn_card
-                # if we can set the exploration card only if the ruin constraint is not active, we deactivate it
-                if (
-                    self.ruin
-                    and not self.setable_option_exists()
-                    and self.setable_option_exists(on_ruin=False)
-                ):
+                if self.ruin and not self.setable_option_exists():
+                    # note: a setable might still not exist if there is not enough space on the map sheet
                     self.ruin = False
-                # if there is (still) no setable option, this means we set a single field which never has a ruin constraint
-                if not self.setable_option_exists():
-                    self.ruin = False
-                    # TODO considfer using a single field attribute to avoid recomputing setable options
 
-    def setable_option_exists(self, on_ruin: bool = None) -> bool:
+    def setable_option_exists(self) -> bool:
         """Returns whether there is at least one setable option for the current exploration card.
 
         Returns:
             bool: True if there is at least one setable option, False otherwise.
         """
         return any(
-            self.map_sheet.is_setable_anywhere(opt.coords, on_ruin or self.ruin)
+            self.map_sheet.is_setable_anywhere(opt.coords, self.ruin)
             for opt in self.exploration_card.options
         )
 
     def play(
         self,
-        i_option: int,
+        exploration_option: ExplorationOption,
         position: Tuple[int, int],
         rotation: int,
         mirror: bool,
-        single_field: Terrains,
     ):
         """Plays a move. This includes placing the exploration option according to the given parameters,
         evaluating the season if the time is up and drawing a new exploration card.
@@ -235,44 +213,48 @@ class CarthographersGame:
             position (Tuple[int, int]): The position to place the exploration option.
             rotation (int): The rotation to use for the exploration option.
             mirror (bool): Whether to mirror the exploration option.
-            single_field (Terrains, optional): If set, a single field of the given terrain instead of the given exploration option is placed.
-                Is only allowed if there is no other option to place. Defaults to None.
 
         Raises:
             InvalidMoveError: If the move is invalid.
         """
+        single_option = isinstance(exploration_option, Terrains)
+
         # validate input
         if self.season >= len(self.season_times):
             raise InvalidMoveError("Game is already over.")
 
-        if len(self.exploration_card.options) < i_option:
-            raise InvalidMoveError("Invalid option")
-
-        if single_field is not None and self.setable_option_exists():
+        if single_option and self.setable_option_exists():
             raise InvalidMoveError("There is a possibility to set one of the options.")
 
-        # get exploration option
-        exploration_option = self.exploration_card.options[i_option]
+        if (
+            not single_option
+            and exploration_option not in self.exploration_card.options
+        ):
+            raise InvalidMoveError(
+                "The given option is not contained in the exploration card."
+            )
 
-        shape_coords = exploration_option.coords
-        terrain = exploration_option.terrain
-        if single_field:
+        # get values from exploration option
+        if single_option:
             shape_coords = frozenset([(0, 0)])
-            terrain = single_field
+            terrain = exploration_option
+            coin = 0
+        else:
+            shape_coords = exploration_option.coords
+            terrain = exploration_option.terrain
+            coin = exploration_option.coin
 
         # place exploration option, implicitly checks if it is setable
         self.map_sheet.place(
-            shape_coords,
+            self.map_sheet.transform_to_map_coords(
+                shape_coords, position, rotation, mirror
+            ),
             terrain,
-            rotation,
-            position,
-            mirror,
             on_ruin=self.ruin,
         )
 
         # add coin
-        if single_field is None and exploration_option.coin:
-            self.coins_from_options += 1
+        self.coins_from_options += coin
 
         # advance the game and add evaluate season if season has ended
         self.time += self.exploration_card.time

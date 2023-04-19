@@ -1,6 +1,6 @@
 """ Representation of the game map. """
 
-from typing import List, Tuple, Generator, FrozenSet
+from typing import List, Tuple, Iterable, FrozenSet
 
 import numpy as np
 import skimage as ski
@@ -76,7 +76,7 @@ class Map:
             for x in range(self.terrain_map.shape[0])
             for y in range(self.terrain_map.shape[1])
             for r in range(4)
-            for mirror in [False, True]
+            for m in [False, True]
         ]
 
     def transform_to_map_coords(
@@ -138,7 +138,7 @@ class Map:
         x_idx, y_idx = zip(*map_coords)
         self.terrain_map[x_idx, y_idx] = terrain.value
 
-    def is_setable(self, map_coords: FrozenSet[Tuple[int, int]], on_ruin: bool):
+    def is_setable(self, map_coords: FrozenSet[Tuple[int, int]], on_ruin: bool) -> bool:
         """Checks if an intended move is valid.
 
         Args:
@@ -150,35 +150,27 @@ class Map:
         """
         return Cluster(map_coords, self).is_valid(on_ruin)
 
-    def setable_map_coords(self, map_coords, on_ruin: bool):
+    def setable_map_coords(
+        self, shape_coords, on_ruin: bool
+    ) -> Iterable[FrozenSet[Tuple[int, int]]]:
+        """Generates all possible map coordinates sets for a piece.
+
+        Args:
+            coords (FrozenSet[Tuple[int, int]]): The original coordinates of the piece,
+                i.e. its shape. (NOT the map coordinates)
+            on_ruin (bool): Whether the piece must be placed on a ruin.
+
+        Yields:
+            Iterable[FrozenSet[Tuple[int, int]]]: All possible map coordinates sets for a piece.
+        """
+
         for x, y, r, m in self._all_action_tuples:
-            map_coords = self.transform_to_map_coords(self.shape_coords, r, (x, y), m)
+            map_coords = self.transform_to_map_coords(shape_coords, r, (x, y), m)
             if self.is_setable(map_coords, on_ruin):
                 yield map_coords
 
-    # def setable_actions(
-    #     self, shape_coords: FrozenSet[Tuple[int, int]], on_ruin: bool
-    # ) -> Generator[int, Tuple[int, int], bool]:
-    #     """Returns all valid options which result in a valid move.
-    #     Note that some options may lead to the same move.
-
-    #     Args:
-    #         coords (FrozenSet[Tuple[int, int]]): The original coordinates of the piece,
-    #             i.e. its shape. (NOT the map coordinates)
-    #         on_ruin (bool): Whether the piece must be placed on a ruin.
-
-    #     Yields:
-    #         Tuple[int, Tuple[int, int], bool]: The possible placements. (rotation, position, mirror)
-    #     """
-    #     for x, y, r, mirror in self._all_action_tuples:
-    #         map_coords = self.transform_to_map_coords(shape_coords, r, (x, y), mirror)
-    #         if self.is_setable(map_coords, on_ruin):
-    #             yield (x, y, r, mirror)
-
     def is_setable_anywhere(
-        self,
-        coords: FrozenSet[Tuple[int, int]],
-        on_ruin: bool,
+        self, coords: FrozenSet[Tuple[int, int]], on_ruin: bool
     ) -> bool:
         """Checks if a piece can be placed anywhere on the map.
 
@@ -191,7 +183,7 @@ class Map:
             bool: Whether the piece can be placed anywhere on the map.
         """
         try:
-            next(self.setable_actions(coords, on_ruin))
+            next(self.setable_map_coords(coords, on_ruin))
             return True
         except StopIteration:
             return False
@@ -238,9 +230,6 @@ class Map:
             List[List[Terrains]]: The list representation.
         """
         return [[Terrains(t) for t in row] for row in self.terrain_map]
-
-    # def __getitem__(self, key):
-    #     return self.terrain_map[key]
 
 
 class Cluster:

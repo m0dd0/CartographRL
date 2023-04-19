@@ -5,7 +5,8 @@ The set of attributes are seperate into changable and fixed options. For the cha
 setter functions are implemented which update the image and/or rect of the sprite.
 To make this pattern consistent all sprites are derived from the abstract MutabelSprite class which 
 enforces the implementation of the _build_image and _build_rect functions.
-The distinction on whether an attribute is changable or fixed is done depending on whether the attribute can change during a move (i.e. before the next button is pressed).
+The distinction on whether an attribute is changable or fixed is done depending on whether the attribute can change during its livetime.
+Getter functions are implemented only when the attribute needs to be accessed from outside the sprite.
 Sprites only get the style dictionairies with elements they need.
 """
 
@@ -75,8 +76,8 @@ class CandidateSprite(MutableSprite):
         self,
         shape_coords: FrozenSet[Tuple[int, int]],
         terrain: Terrains,
+        valid: bool,
         initial_position: Tuple[int, int],
-        position: Tuple[int, int],
         candidate_style: Dict[str, Any],
         field_style: Dict[str, Any],
     ):
@@ -85,8 +86,8 @@ class CandidateSprite(MutableSprite):
         Args:
             shape_coords (FrozenSet[Tuple[int, int]]): Coordinates of the candidate.
             terrain (Terrains): Terrain of the candidate.
+            valid (bool): Whether the candidate is valid.
             initial_position (Tuple[int, int]): Initial position of the candidate.
-            position (Tuple[int, int]): Current position of the candidate.
             candidate_style (Dict[str, Any]): Style dictionary for the candidate itself.
             field_style (Dict[str, Any]): Style dictionary for the fields in the candidate.
         """
@@ -94,11 +95,13 @@ class CandidateSprite(MutableSprite):
 
         # changable options
         self._shape_coords = shape_coords
-        self._position = position
+        self._dragged = False
+        self._drag_offset = None
 
         # fixed options
         self._terrain = terrain
         self._initial_position = initial_position
+        self._valid = valid
         self._style = candidate_style
         self._field_style = field_style
 
@@ -115,10 +118,44 @@ class CandidateSprite(MutableSprite):
             self._field_style["frame_width"],
             self._field_style["frame_color"],
         )
+        if not self._valid:
+            self.image = pygame.transform.grayscale(self.image)
 
     def _build_rect(self):
         self.rect = self.image.get_rect()
         self.rect.topleft = self._position
+
+    def drag(self, position: Tuple[int, int]):
+        """Drag the candidate to a new position.
+
+        Args:
+            position (Tuple[int, int]): New position of the candidate.
+        """
+        if self._drag_offset is None:
+            self._drag_offset = (
+                position[0] - self.rect.topleft[0],
+                position[1] - self.rect.topleft[1],
+            )
+        self.rect.topleft = (
+            position[0] - self._drag_offset[0],
+            position[1] - self._drag_offset[1],
+        )
+
+    def drop(self):
+        """Drop the candidate."""
+        self._drag_offset = None
+
+    def on_shape(self, position: Tuple[int, int]) -> bool:
+        """Check if the candidate contains a given position.
+
+        Args:
+            position (Tuple[int, int]): Position to check.
+
+        Returns:
+            bool: Whether the candidate contains the position.
+        """
+        # TODO use only fields as collision detection
+        return self.rect.collidepoint(position)
 
     @property
     def shape_coords(self):
@@ -130,13 +167,12 @@ class CandidateSprite(MutableSprite):
         self._build_image()
 
     @property
-    def position(self):
-        return self._position
+    def dragged(self):
+        return self._drag_offset is not None
 
-    @position.setter
-    def position(self, value):
-        self._position = value
-        self._build_rect()
+    @property
+    def valid(self):
+        return self._valid
 
 
 class MapSprite(MutableSprite):
@@ -159,9 +195,9 @@ class MapSprite(MutableSprite):
         super().__init__()
 
         # changable options
+        self._map_values = map_values
 
         # fixed options
-        self._map_values = map_values
         self._ruin_coords = ruin_coords
         self._map_style = map_style
         self._field_style = field_style
@@ -228,214 +264,179 @@ class MapSprite(MutableSprite):
         ) // self._field_style["size"]
         return x, y
 
+    @property
+    def map_values(self):
+        return self._map_values
 
-# class OptionSprite(MutableSprite):
-#     def __init__(
-#         self,
-#         shape_coords: FrozenSet[Tuple[int, int]],
-#         terrain: Terrains,
-#         rotation: int,
-#         mirror: bool,
-#         coin: bool,
-#         valid: bool,
-#         option_index: Union[int, Terrains],
-#         option_col: int,
-#         option_style: Dict[str, Any],
-#     ) -> None:
-#         """Visualization of a single option in the current state of the game.
-#         Contains also the state of the option (selected, valid, rotation, mirror, index).
-
-#         Args:
-#             shape_coords (FrozenSet[Tuple[int, int]]): Original oordinates of the option shape.
-#             terrain (Terrains): Terrain of the option.
-#             rotation (int): Rotation of the option.
-#             mirror (bool): Whether the option is mirrored.
-#             coin (bool): Whether the option contains a coin.
-#             valid (bool): Whether the option is valid.
-#             option_index (Union[int, Terrains]): Index of the option or terrain if the option is a single field option.
-#             option_col (int): At which "place" the option is positioned.
-#             style (Dict[str, Any]): Style dictionary.
-#         """
-#         super().__init__()
-
-#         # changable options
-#         self._rotation = rotation
-#         self._mirror = mirror
-
-#         # fixed options
-#         self._shape_coords = shape_coords
-#         self._terrain = terrain
-#         self._valid = valid
-#         self._coin = coin
-#         self._option_index = option_index
-#         self._option_col = option_col
-#         self._option_style = option_style
-
-#         # build
-#         self.image = None
-#         self.rect = None
-#         self._build()
-
-#     def _build(self):
-#         """Builds the option surface depending on the current state of the option."""
-#         style = self._option_style["option"]
-#         if isinstance(self._option_index, Terrains):
-#             style = self._option_style["single_option"]
-
-#         self.image = ImageRectSurf(
-#             style["size"],
-#             style["color"],
-#             style["frame_color"],
-#             style["frame_width"],
-#             style["frame_rounding"],
-#             get_asset_path(style["image"]),
-#             style["image_size"],
-#             style["image_offset"],
-#             style["opacity"],
-#         )
-
-#         coords = self._transform_shape_coords(
-#             self.shape_coords, self._mirror, self._rotation
-#         )
-#         self.image.blit(
-#             AreaFrameSurf(
-#                 coords,
-#                 self._terrain,
-#                 style["candidate_frame_width"],
-#                 style["candidate_frame_color"],
-#                 self._option_style["field"]["size"],
-#             ),
-#             style["shape_offset"],
-#         )
-
-#         if not isinstance(self._option_index, Terrains):
-#             coin_style = style["coin"]
-#             coin_surf = ImageRectSurf(
-#                 coin_style["size"],
-#                 coin_style["color"],
-#                 coin_style["frame_color"],
-#                 coin_style["frame_width"],
-#                 coin_style["frame_rounding"],
-#                 get_asset_path(coin_style["image"]),
-#                 coin_style["image_size"],
-#                 coin_style["image_offset"],
-#                 coin_style["opacity"],
-#             )
-
-#             if not self._coin:
-#                 coin_surf = pygame.transform.grayscale(coin_surf)
-
-#             self.image.blit(coin_surf, coin_style["offset"])
-
-#         if not self._valid:
-#             self.image = pygame.transform.grayscale(self.image)
-
-#         self.rect = self.image.get_rect()
-#         self.rect.topleft = (
-#             style["position"][0]
-#             + self._option_col * (style["size"][0] + style["spacing"]),
-#             style["position"][1],
-#         )
-
-#     def _build_rect(self):
-#         return super()._build_rect()
-
-#     def _transform_shape_coords(
-#         self, shape_coords: FrozenSet[Tuple[int, int]], mirror: bool, rotation: int
-#     ) -> FrozenSet[Tuple[int, int]]:
-#         """Transforms the shape coordinates depending on the current state of the option.
-#         I.e. rotates and mirrors the shape coordinates to obtain the coorindates to display.
-#         Tge shape_coord attribute is not changed.
-
-#         Args:
-#             shape_coords (FrozenSet[Tuple[int, int]]): Original coordinates of the option shape.
-#             mirror (bool): Whether the option is mirrored.
-#             rotation (int): Rotation of the option.
-
-#         Returns:
-#             FrozenSet[Tuple[int, int]]: Transformed coordinates of the option shape.
-#         """
-#         if mirror:
-#             shape_coords = {(-x, y) for x, y in shape_coords}
-
-#         if rotation == 0:
-#             shape_coords = shape_coords
-#         elif rotation == 1:
-#             shape_coords = {(y, -x) for x, y in shape_coords}
-#         elif rotation == 2:
-#             shape_coords = {(-x, -y) for x, y in shape_coords}
-#         elif rotation == 3:
-#             shape_coords = {(-y, x) for x, y in shape_coords}
-#         else:
-#             raise ValueError(f"Invalid rotation: {rotation}")
-
-#         min_x = min(x for x, _ in shape_coords)
-#         min_y = min(y for _, y in shape_coords)
-#         shape_coords = {(x - min_x, y - min_y) for x, y in shape_coords}
-
-#         return shape_coords
-
-#     @property
-#     def rotation(self):
-#         return self._rotation
-
-#     @rotation.setter
-#     def rotation(self, rotation):
-#         self._rotation = rotation
-#         self._build()
-
-#     @property
-#     def mirror(self):
-#         return self._mirror
-
-#     @mirror.setter
-#     def mirror(self, mirror):
-#         self._mirror = mirror
-#         self._build()
-
-#     @property
-#     def valid(self):
-#         return self._valid
-
-#     @property
-#     def shape_coords(self):
-#         return self._shape_coords
-
-#     @property
-#     def i_option(self):
-#         return self._option_index
-
-#     @property
-#     def terrain(self):
-#         return self._terrain
-
-#     @property
-#     def shape_position(self):
-#         return (
-#             self.rect.topleft[0] + self._option_style["option"]["shape_offset"][0],
-#             self.rect.topleft[1] + self._option_style["option"]["shape_offset"][1],
-#         )
+    @map_values.setter
+    def map_values(self, value):
+        self._map_values = value
+        self._build_image()
 
 
-# class OptionsBackgrounSprite(pygame.sprite.Sprite):
-#     def __init__(self, name: str, time: int, style: Dict[str, Any]) -> None:
-#         style = style["options_background"]
-#         self.image = ImageRectSurf(
-#             style["size"],
-#             style["color"],
-#             style["frame_color"],
-#             style["frame_width"],
-#             style["frame_rounding"],
-#             get_asset_path(style["image"]),
-#             style["image_size"],
-#             style["image_offset"],
-#             style["opacity"],
-#         )
+class OptionSprite(MutableSprite):
+    def __init__(
+        self,
+        shape_coords: FrozenSet[Tuple[int, int]],
+        rotation: int,
+        mirror: bool,
+        terrain: Terrains,
+        coin: bool,
+        valid: bool,
+        single_field: bool,
+        option_col: int,
+        option_style: Dict[str, Any],
+        candidate_style: Dict[str, Any],
+    ) -> None:
+        """Visualization of a single option in the current state of the game.
+        Contains also the state of the option (selected, valid, rotation, mirror, index).
 
-#         # TODO time and name
+        Args:
+            shape_coords (FrozenSet[Tuple[int, int]]): Original oordinates of the option shape.
+            rotation (int): Rotation of the option.
+            mirror (bool): Whether the option is mirrored.
+            coin (bool): Whether the option contains a coin.
+            valid (bool): Whether the option is valid.
+            single_field (bool): Whether the option is a single field.
+            option_col (int): At which "place" the option is positioned.
+            style (Dict[str, Any]): Style dictionary.
+        """
+        super().__init__()
 
-#         self.rect = self.image.get_rect()
-#         self.rect.topleft = style["position"]
+        # changable options
+        self._rotation = rotation
+        self._mirror = mirror
+
+        # fixed options
+        self._shape_coords = shape_coords
+        self._valid = valid
+        self._terrain = terrain
+        self._coin = coin
+        self._option_col = option_col
+        self._single_field = single_field
+        self._option_style = option_style
+        self._candidate_style = candidate_style
+
+        # build
+        self.image = None
+        self.rect = None
+        self._build_image()
+        self._build_rect()
+
+    def _build_image(self):
+        self.image = ImageRectSurf(
+            self._option_style["size"],
+            self._option_style["color"],
+            self._option_style["frame_color"],
+            self._option_style["frame_width"],
+            self._option_style["frame_rounding"],
+            get_asset_path(self._option_style["image"]),
+            self._option_style["image_size"],
+            self._option_style["image_offset"],
+            self._option_style["opacity"],
+        )
+
+        self.image.blit(
+            AreaSurf(
+                self.transformed_coords(),
+                None,
+                self._option_style["candidate_frame_width"],
+                self._option_style["candidate_frame_color"],
+                {},
+            ),
+            self._option_style["shape_offset"],
+        )
+
+        if not self._single_field:
+            coin_style = self._option_style["coin"]
+            coin_surf = ImageRectSurf(
+                coin_style["size"],
+                coin_style["color"],
+                coin_style["frame_color"],
+                coin_style["frame_width"],
+                coin_style["frame_rounding"],
+                get_asset_path(coin_style["image"]),
+                coin_style["image_size"],
+                coin_style["image_offset"],
+                coin_style["opacity"],
+            )
+
+            if not self._coin:
+                coin_surf = pygame.transform.grayscale(coin_surf)
+
+            self.image.blit(coin_surf, coin_style["offset"])
+
+        if not self._valid:
+            self.image = pygame.transform.grayscale(self.image)
+
+    def _build_rect(self):
+        self.rect = self.image.get_rect()
+        self.rect.topleft = (
+            self._option_style["position"][0]
+            + self._option_col
+            * (self._option_style["size"][0] + self._option_style["spacing"]),
+            self._option_style["position"][1],
+        )
+
+    def transformed_coords(self):
+        """Transforms the shape coordinates depending on the current state of the option.
+        I.e. rotates and mirrors the shape coordinates to obtain the coorindates to display.
+        Tge shape_coord attribute is not changed.
+        """
+        coords = self._shape_coords
+
+        if self._mirror:
+            coords = {(-x, y) for x, y in coords}
+
+        if self._rotation == 0:
+            coords = coords
+        elif self._rotation == 1:
+            coords = {(y, -x) for x, y in coords}
+        elif self._rotation == 2:
+            coords = {(-x, -y) for x, y in coords}
+        elif self._rotation == 3:
+            coords = {(-y, x) for x, y in coords}
+        else:
+            raise ValueError(f"Invalid rotation: {self._rotation}")
+
+        min_x = min(x for x, _ in coords)
+        min_y = min(y for _, y in coords)
+        coords = {(x - min_x, y - min_y) for x, y in coords}
+
+        return coords
+
+    def initial_candidate_sprite(self):
+        """Returns a candidate sprite with the same shape as the option.
+        The candidate sprite is not yet placed on the map.
+        """
+        return CandidateSprite(
+            self.transformed_coords(),
+            self._terrain,
+            self._valid,
+            (
+                self.rect.topleft[0] + self._option_style["shape_offset"][0],
+                self.rect.topleft[1] + self._option_style["shape_offset"][1],
+            ),
+            self._candidate_style,
+        )
+
+    @property
+    def rotation(self):
+        return self._rotation
+
+    @rotation.setter
+    def rotation(self, rotation):
+        self._rotation = rotation
+        self._build_image()
+
+    @property
+    def mirror(self):
+        return self._mirror
+
+    @mirror.setter
+    def mirror(self, mirror):
+        self._mirror = mirror
+        self._build_image()
 
 
 # class ScoreTableSprite(pygame.sprite.Sprite):

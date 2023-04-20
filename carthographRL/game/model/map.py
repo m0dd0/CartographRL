@@ -82,8 +82,8 @@ class Map:
     def transform_to_map_coords(
         self,
         shape_coords: FrozenSet[Tuple[int, int]],
+        position: Tuple[int, int],
         rotation: int,
-        position: FrozenSet[Tuple[int, int]],
         mirror: bool,
     ) -> FrozenSet[Tuple[int, int]]:
         """Transforms the coordinates of a piece to the map coordinates depending on the rotation and the position.
@@ -165,7 +165,7 @@ class Map:
         """
 
         for x, y, r, m in self._all_action_tuples:
-            map_coords = self.transform_to_map_coords(shape_coords, r, (x, y), m)
+            map_coords = self.transform_to_map_coords(shape_coords, (x, y), r, m)
             if self.is_setable(map_coords, on_ruin):
                 yield map_coords
 

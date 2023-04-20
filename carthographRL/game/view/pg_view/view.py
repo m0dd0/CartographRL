@@ -49,7 +49,7 @@ class PygameView(View):
 
         # sprites
         self._background_sprite = ScreenSprite(self._style["screen"])
-        self._map_sprite = None
+        self._map_sprite: MapSprite = None
         self._options_background_sprite = None
         self._option_sprites: List[OptionSprite] = []
         self._candidate_sprites: List[CandidateSprite] = []
@@ -152,11 +152,26 @@ class PygameView(View):
         if self._active_candidate is not None and self._active_candidate.dragged:
             self._active_candidate.drag(event.pos)
 
-    def _on_mouse_up(self, event: pygame.event.Event):
+    def _on_mouse_up(self, event: pygame.event.Event, game: CarthographersGame):
         if self._active_candidate is not None and self._active_candidate.dragged:
             self._active_candidate.drag(event.pos)
-            if self._map_sprite. self._active_candidate.rect.topleft
             self._active_candidate.drop()
+
+            map_position = self._map_sprite.grid_coord(
+                self._active_candidate.rect.topleft
+            )
+            if map_position is not None and game.map_sheet.is_setable(
+                game.map_sheet.transform_to_map_coords(
+                    self._active_candidate.shape_coords, map_position, 0, False
+                ),
+                game.ruin,
+            ):
+                self._active_candidate.rect.topleft = self._map_sprite.pixel_coord(
+                    map_position
+                )
+            else:
+                self._active_candidate.reset_drag()
+                self._active_candidate = None
 
     # def _on_next_button_click(self):
     #     self._map_sprite = None
@@ -172,7 +187,7 @@ class PygameView(View):
             if event.type == pygame.MOUSEBUTTONDOWN:
                 self._on_mouse_down(event)
             if event.type == pygame.MOUSEBUTTONUP:
-                self._on_mouse_up(event)
+                self._on_mouse_up(event, game)
             if event.type == pygame.MOUSEMOTION:
                 self._on_mouse_move(event)
             # if event.type == pygame.KEYDOWN:

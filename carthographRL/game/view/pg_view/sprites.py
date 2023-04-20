@@ -250,8 +250,8 @@ class MapSprite(MutableSprite):
         self.rect = self.image.get_rect()
         self.rect.topleft = self._map_style["position"]
 
-    def get_mouse_grid_coords(self, mouse_pos: Tuple[int, int]) -> Tuple[int, int]:
-        """Returns the grid coordinates of the field the mouse is currently over.
+    def grid_coord(self, pixel_pos: Tuple[int, int]) -> Tuple[int, int]:
+        """Returns the snapped grid coordinates of the field the mouse is currently over.
 
         Args:
             mouse_pos (Tuple[int, int]): Mouse position in pixels.
@@ -260,15 +260,38 @@ class MapSprite(MutableSprite):
             Tuple[int, int]: Grid coordinates of the field the mouse is currently over.
                 None if the mouse is not over the clickable area of the map.
         """
+        grid_coord = (
+            round((pixel_pos[0] - self.rect.x) / self._field_style["size"]),
+            round((pixel_pos[1] - self.rect.y) / self._field_style["size"]),
+        )
 
-        if not self.rect.collidepoint(mouse_pos):
+        if (not 0 <= grid_coord[0] < len(self._map_values[0])) or (
+            not 0 <= grid_coord[1] < len(self._map_values[1])
+        ):
             return None
+
+        return grid_coord
+
+    def pixel_coord(self, grid_pos: Tuple[int, int]) -> Tuple[int, int]:
+        """Returns the pixel coordinates of the topleft od the field at the given grid coordinates.
+
+        Args:
+            grid_pos (Tuple[int, int]): Grid coordinates of the field.
+
+        Returns:
+            Tuple[int, int]: Pixel coordinates of the topleft of the field.
+        """
+
         x = (
-            mouse_pos[0] - self.rect.x - self._map_style["padding"]
-        ) // self._field_style["size"]
+            grid_pos[0] * self._field_style["size"]
+            + self._map_style["padding"]
+            + self.rect.x
+        )
         y = (
-            mouse_pos[1] - self.rect.y - self._map_style["padding"]
-        ) // self._field_style["size"]
+            grid_pos[1] * self._field_style["size"]
+            + self._map_style["padding"]
+            + self.rect.y
+        )
         return x, y
 
     @property

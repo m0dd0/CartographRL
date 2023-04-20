@@ -35,7 +35,7 @@ class PygameView(View):
 
         # load style
         style = style or {}
-        default_style_path = Path(__file__).parent / "pygame_styles" / "default.yaml"
+        default_style_path = Path(__file__).parent / "styles" / "default.yaml"
         with open(default_style_path, "r") as f:
             default_style = yaml.safe_load(f)
         self._style = merge(default_style, style)
@@ -55,6 +55,9 @@ class PygameView(View):
         self._candidate_sprites: List[CandidateSprite] = []
         self._score_table_sprite = None
         self._next_button_sprite = None
+
+        # view state
+        self._active_candidate = None
 
     def _all_sprites(self) -> List[pygame.sprite.Sprite]:
         """Returns all sprites of the view. If the sprites hasn't been created yet,
@@ -94,6 +97,7 @@ class PygameView(View):
                 i,
                 self._style["option"],
                 self._style["candidate"],
+                self._style["field"],
             )
             self._option_sprites.append(option_sprite)
 
@@ -122,28 +126,37 @@ class PygameView(View):
         self._map_sprite = MapSprite(
             game.map_sheet.to_list(),
             game.map_sheet.ruin_coords,
-            self._style,
+            self._style["map"],
+            self._style["field"],
         )
 
     def _on_mouse_down(self, event: pygame.event.Event):
+        assert not self._active_candidate.dragged if self._active_candidate else True
+
         for candidate_sprite in self._candidate_sprites:
-            if (
+            if (  # pressed on a valid candidate
                 candidate_sprite.valid
                 and candidate_sprite.rect.collidepoint(event.pos)
                 and candidate_sprite.on_shape(event.pos)
             ):
+                if (  # pressed on a different candidate the one that is already active
+                    self._active_candidate != candidate_sprite
+                    and self._active_candidate is not None
+                ):
+                    self._active_candidate.reset_drag()
+
+                self._active_candidate = candidate_sprite
                 candidate_sprite.drag(event.pos)
 
     def _on_mouse_move(self, event: pygame.event.Event):
-        for candidate_sprite in self._candidate_sprites:
-            if candidate_sprite.dragged:
-                candidate_sprite.drag(event.pos)
+        if self._active_candidate is not None and self._active_candidate.dragged:
+            self._active_candidate.drag(event.pos)
 
     def _on_mouse_up(self, event: pygame.event.Event):
-        for candidate_sprite in self._candidate_sprites:
-            if candidate_sprite.dragged:
-                candidate_sprite.drag(event.pos)
-                candidate_sprite.drop()
+        if self._active_candidate is not None and self._active_candidate.dragged:
+            self._active_candidate.drag(event.pos)
+            if self._map_sprite. self._active_candidate.rect.topleft
+            self._active_candidate.drop()
 
     # def _on_next_button_click(self):
     #     self._map_sprite = None
@@ -159,10 +172,11 @@ class PygameView(View):
             if event.type == pygame.MOUSEBUTTONDOWN:
                 self._on_mouse_down(event)
             if event.type == pygame.MOUSEBUTTONUP:
-                self._on_mouse_up()
+                self._on_mouse_up(event)
+            if event.type == pygame.MOUSEMOTION:
+                self._on_mouse_move(event)
             # if event.type == pygame.KEYDOWN:
             #     self._on_key_press(event.key)
-        self._on_mouse_move(game)
 
     def render(self, game: CarthographersGame):
         if None in self._all_sprites():
@@ -176,9 +190,8 @@ class PygameView(View):
 
         for sprite in self._all_sprites():
             self.display.blit(sprite.image, sprite.rect)
-        pygame.display.flip()
 
-        self.clock.tick(self.frame_rate)
+        pygame.display.flip()
 
         # return action
 

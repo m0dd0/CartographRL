@@ -176,40 +176,13 @@ class AreaSurf(pygame.Surface):
             field_style: (Dict[str, Any]): Style dictionary for the fields.
         """
         super().__init__(
-            (max(c[0] for c in shape_coords), max(c[1] for c in shape_coords)),
+            (
+                (max(c[0] for c in shape_coords) + 1) * field_style["size"],
+                (max(c[1] for c in shape_coords) + 1) * field_style["size"],
+            ),
             pygame.SRCALPHA,
         )
         self.fill((0, 0, 0, 0))
-
-        edges = set()
-        for x, y in shape_coords:
-            top_edge = ((x, y), (x + 1, y))
-            bottom_edge = ((x, y + 1), (x + 1, y + 1))
-            left_edge = ((x, y), (x, y + 1))
-            right_edge = ((x + 1, y), (x + 1, y + 1))
-
-            top = (x - 1, y)
-            bottom = (x - 1, y)
-            left = (x, y - 1)
-            right = (x, y + 1)
-
-            if top not in shape_coords:
-                edges.add(top_edge)
-            if bottom not in shape_coords:
-                edges.add(bottom_edge)
-            if left not in shape_coords:
-                edges.add(left_edge)
-            if right not in shape_coords:
-                edges.add(right_edge)
-
-        for edge in edges:
-            pygame.draw.line(
-                self,
-                frame_color,
-                (edge[0][0] * field_style["size"], edge[0][1] * field_style["size"]),
-                (edge[1][0] * field_style["size"], edge[1][1] * field_style["size"]),
-                frame_width,
-            )
 
         if terrain is not None:
             for x, y in shape_coords:
@@ -218,3 +191,24 @@ class AreaSurf(pygame.Surface):
                     field_surf, (x * field_style["size"], y * field_style["size"])
                 )
 
+        # we define the edges as rectangles as this avoids problems on the edges of the surface
+        # TODO handle concave shapes (idea: use lines again but use larger surface to avoid problems on the edges)
+        s = field_style["size"]
+        d = frame_width
+        edges = []
+        for x, y in shape_coords:
+            if (x - 1, y) not in shape_coords:  # left edge
+                left_edge = (x * s, y * s, d, s)
+                edges.append(left_edge)
+            if (x + 1, y) not in shape_coords:  # right edge
+                right_edge = ((x + 1) * s - d, y * s, d, s)
+                edges.append(right_edge)
+            if (x, y - 1) not in shape_coords:  # top edge
+                top_edge = (x * s, y * s, s, d)
+                edges.append(top_edge)
+            if (x, y + 1) not in shape_coords:  # bottom edge
+                bottom_edge = (x * s, (y + 1) * s - d, s, d)
+                edges.append(bottom_edge)
+
+        for edge in edges:
+            pygame.draw.rect(self, frame_color, edge)

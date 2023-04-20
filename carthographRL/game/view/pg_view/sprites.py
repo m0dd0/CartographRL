@@ -95,14 +95,12 @@ class CandidateSprite(MutableSprite):
 
         # changable options
         self._shape_coords = shape_coords
-        self._dragged = False
-        self._drag_offset = None
 
         # fixed options
         self._terrain = terrain
         self._initial_position = initial_position
         self._valid = valid
-        self._style = candidate_style
+        self._candidate_style = candidate_style
         self._field_style = field_style
 
         # build
@@ -111,19 +109,23 @@ class CandidateSprite(MutableSprite):
         self._build_image()
         self._build_rect()
 
+        # internals
+        self._drag_offset = None
+
     def _build_image(self):
         self.image = AreaSurf(
             self._shape_coords,
             self._terrain,
-            self._field_style["frame_width"],
-            self._field_style["frame_color"],
+            self._candidate_style["frame_width"],
+            self._candidate_style["frame_color"],
+            self._field_style,
         )
         if not self._valid:
             self.image = pygame.transform.grayscale(self.image)
 
     def _build_rect(self):
         self.rect = self.image.get_rect()
-        self.rect.topleft = self._position
+        self.rect.topleft = self._initial_position
 
     def drag(self, position: Tuple[int, int]):
         """Drag the candidate to a new position.
@@ -157,6 +159,11 @@ class CandidateSprite(MutableSprite):
         # TODO use only fields as collision detection
         return self.rect.collidepoint(position)
 
+    def reset_drag(self):
+        """Reset the drag offset."""
+        self._drag_offset = None
+        self.rect.topleft = self._initial_position
+
     @property
     def shape_coords(self):
         return self._shape_coords
@@ -167,12 +174,12 @@ class CandidateSprite(MutableSprite):
         self._build_image()
 
     @property
-    def dragged(self):
-        return self._drag_offset is not None
-
-    @property
     def valid(self):
         return self._valid
+
+    @property
+    def dragged(self):
+        return self._drag_offset is not None
 
 
 class MapSprite(MutableSprite):
@@ -229,7 +236,7 @@ class MapSprite(MutableSprite):
         for x, row in enumerate(self._map_values):
             for y, terrain in enumerate(row):
                 field_surf = FieldSurf(
-                    terrain, (x, y) in self._ruin_coords, False, self._map_style
+                    terrain, (x, y) in self._ruin_coords, self._field_style
                 )
                 self.image.blit(
                     field_surf,
@@ -287,6 +294,7 @@ class OptionSprite(MutableSprite):
         option_col: int,
         option_style: Dict[str, Any],
         candidate_style: Dict[str, Any],
+        field_style: Dict[str, Any],
     ) -> None:
         """Visualization of a single option in the current state of the game.
         Contains also the state of the option (selected, valid, rotation, mirror, index).
@@ -299,7 +307,6 @@ class OptionSprite(MutableSprite):
             valid (bool): Whether the option is valid.
             single_field (bool): Whether the option is a single field.
             option_col (int): At which "place" the option is positioned.
-            style (Dict[str, Any]): Style dictionary.
         """
         super().__init__()
 
@@ -316,6 +323,7 @@ class OptionSprite(MutableSprite):
         self._single_field = single_field
         self._option_style = option_style
         self._candidate_style = candidate_style
+        self._field_style = field_style
 
         # build
         self.image = None
@@ -342,7 +350,7 @@ class OptionSprite(MutableSprite):
                 None,
                 self._option_style["candidate_frame_width"],
                 self._option_style["candidate_frame_color"],
-                {},
+                self._field_style,
             ),
             self._option_style["shape_offset"],
         )
@@ -418,6 +426,7 @@ class OptionSprite(MutableSprite):
                 self.rect.topleft[1] + self._option_style["shape_offset"][1],
             ),
             self._candidate_style,
+            self._field_style,
         )
 
     @property

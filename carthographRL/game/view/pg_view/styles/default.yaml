@@ -38,6 +38,8 @@ option:
   opacity: 255
   spacing: 30
   shape_offset: [15, 15]
+  candidate_frame_width: 3
+  candidate_frame_color: [0, 0, 0]
   coin:
     offset: [65, 150]
     size: [20, 20]
@@ -91,7 +93,11 @@ field:
   frame_rounding: 0
   opacity: 255
   candidate_opacity: 150
-  ruin_overlay: "ruin.png"
+  ruin_overlay: "ruin_icon.png"
+
+candidate:
+  frame_width: 3
+  frame_color: [0, 0, 0]
 
 # options_background:
 

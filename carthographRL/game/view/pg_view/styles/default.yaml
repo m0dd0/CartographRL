@@ -96,8 +96,12 @@ field:
   ruin_overlay: "ruin_icon.png"
 
 candidate:
+  opacity: 150
   frame_width: 3
   frame_color: [0, 0, 0]
+  opacity_setable: 200
+  frame_width_setable: 3
+  frame_color_setable: [0, 0, 0]
 
 # options_background:
 

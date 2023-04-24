@@ -123,6 +123,8 @@ class CandidateSprite(MutableSprite):
         if not self._valid:
             self.image = pygame.transform.grayscale(self.image)
 
+        self.image.set_alpha(self._candidate_style["opacity"])
+
     def _build_rect(self):
         self.rect = self.image.get_rect()
         self.rect.topleft = self._initial_position
@@ -293,6 +295,21 @@ class MapSprite(MutableSprite):
             + self.rect.y
         )
         return x, y
+
+    def snap_pixel_coord(self, pixel_pos: Tuple[int, int]) -> Tuple[int, int]:
+        """Returns the pixel coordinates of the topleft of the field the mouse is currently over.
+
+        Args:
+            mouse_pos (Tuple[int, int]): Mouse position in pixels.
+
+        Returns:
+            Tuple[int, int]: Pixel coordinates of the topleft of the field the mouse is currently over.
+                None if the mouse is not over the clickable area of the map.
+        """
+        grid_coord = self.grid_coord(pixel_pos)
+        if grid_coord is None:
+            return None
+        return self.pixel_coord(grid_coord)
 
     @property
     def map_values(self):

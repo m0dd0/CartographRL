@@ -148,26 +148,32 @@ class PygameView(View):
                 self._active_candidate = candidate_sprite
                 candidate_sprite.drag(event.pos)
 
-    def _on_mouse_move(self, event: pygame.event.Event):
+    def _candidate_setable(self, game: CarthographersGame) -> bool:
+        assert self._active_candidate is not None
+
+        map_position = self._map_sprite.grid_coord(self._active_candidate.rect.topleft)
+        if map_position is None:
+            return False
+
+        map_coords = game.map_sheet.transform_to_map_coords(
+            self._active_candidate.shape_coords, map_position, 0, False
+        )
+        return game.map_sheet.is_setable(map_coords, game.ruin)
+
+    def _on_mouse_move(self, event: pygame.event.Event, game: CarthographersGame):
         if self._active_candidate is not None and self._active_candidate.dragged:
             self._active_candidate.drag(event.pos)
+
+            self._active_candidate.setable = self._candidate_setable(game)
 
     def _on_mouse_up(self, event: pygame.event.Event, game: CarthographersGame):
         if self._active_candidate is not None and self._active_candidate.dragged:
             self._active_candidate.drag(event.pos)
             self._active_candidate.drop()
 
-            map_position = self._map_sprite.grid_coord(
-                self._active_candidate.rect.topleft
-            )
-            if map_position is not None and game.map_sheet.is_setable(
-                game.map_sheet.transform_to_map_coords(
-                    self._active_candidate.shape_coords, map_position, 0, False
-                ),
-                game.ruin,
-            ):
+            if self._candidate_setable(game):
                 self._active_candidate.rect.topleft = self._map_sprite.pixel_coord(
-                    map_position
+                    self._map_sprite.grid_coord(self._active_candidate.rect.topleft)
                 )
             else:
                 self._active_candidate.reset_drag()

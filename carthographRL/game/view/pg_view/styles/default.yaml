@@ -63,8 +63,10 @@ single_option:
   frame_color: [0, 0, 0]
   frame_rounding: 0
   opacity: 255
-  shape_offset: [15, 15]
   spacing: 30
+  shape_offset: [15, 15]
+  candidate_frame_width: 3
+  candidate_frame_color: [0, 0, 0]
   
 field:
   size: 30

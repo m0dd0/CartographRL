@@ -46,22 +46,25 @@ class PygameView(View):
         pygame.display.set_caption(self._style["title"])
         self.clock = pygame.time.Clock()
         self.frame_rate = frame_rate
+        self._NEW_MOVE_EVENT = pygame.USEREVENT + 1
+        pygame.event.post(pygame.event.Event(self._NEW_MOVE_EVENT))
 
         # sprites
         self._background_sprite = ScreenSprite(self._style["screen"])
-        self._map_sprite: MapSprite = None
-        self._options_background_sprite = None
+        self._map_sprite: MapSprite = MapSprite(
+            [[]], [], self._style["map"], self._style["field"]
+        )
+        # self._options_background_sprite =
         self._option_sprites: List[OptionSprite] = []
         self._candidate_sprites: List[CandidateSprite] = []
-        self._score_table_sprite = None
-        self._next_button_sprite = None
+        # self._score_table_sprite = None
+        # self._next_button_sprite = None
 
         # view state
-        self._active_candidate = None
+        self._option_index = None
 
     def _all_sprites(self) -> List[pygame.sprite.Sprite]:
-        """Returns all sprites of the view. If the sprites hasn't been created yet,
-        the values will be None.
+        """Returns all sprites of the view.
         The ordering accounts for the drawing order.
 
         Returns:
@@ -70,9 +73,9 @@ class PygameView(View):
             [
                 self._background_sprite,
                 self._map_sprite,
+                # self._options_background_sprite,
                 # self._score_table_sprite,
                 # self._next_button_sprite,
-                # self._info_sprite,
             ]
             + self._option_sprites
             + self._candidate_sprites
@@ -80,133 +83,154 @@ class PygameView(View):
 
         return sprites
 
-    def _rebuild_options(self, game: CarthographersGame):
+    def _build_options(self, game: CarthographersGame):
         # delete option sprites from previous move
         self._option_sprites = []
+        self._candidate_sprites = []
 
         # create regular option sprites
         for i, opt in enumerate(game.exploration_card.options):
             option_sprite = OptionSprite(
                 opt.coords,
-                0,
-                False,
                 opt.terrain,
                 opt.coin,
                 game.map_sheet.is_setable_anywhere(opt.coords, game.ruin),
                 False,
                 i,
                 self._style["option"],
-                self._style["candidate"],
                 self._style["field"],
             )
             self._option_sprites.append(option_sprite)
 
         # create single field option sprites
-        # setable_option_exists = game.setable_option_exists()
-        # for i in range(5):  # always 5 single field options
-        #     single_option_sprite = OptionSprite(
-        #         frozenset([(0, 0)]),
-        #         0,
-        #         False,
+        setable_option_exists = game.setable_option_exists()
+        for i, terrain in enumerate(
+            (
+                Terrains.FARM,
+                Terrains.FOREST,
+                Terrains.MONSTER,
+                Terrains.VILLAGE,
+                Terrains.WATER,
+            )
+        ):
+            option_sprite = OptionSprite(
+                frozenset([(0, 0)]),
+                terrain,
+                False,
+                not setable_option_exists,
+                True,
+                i,
+                self._style["single_option"],
+                self._style["field"],
+            )
+            self._option_sprites.append(option_sprite)
 
-        #         False,
-        #         not setable_option_exists,
-        #         i,
-        #         self._style,
-        #     )
-        #     self._option_sprites.append(single_option_sprite)
-
-        # also upate the candidate sprites
-        self._candidate_sprites = []
+        # create candidate sprites
         for os in self._option_sprites:
-            candidate_sprite = os.initial_candidate_sprite()
-            self._candidate_sprites.append(candidate_sprite)
-
-    def _rebuild_map(self, game: CarthographersGame):
-        self._map_sprite = MapSprite(
-            game.map_sheet.to_list(),
-            game.map_sheet.ruin_coords,
-            self._style["map"],
-            self._style["field"],
-        )
-
-    def _on_mouse_down(self, event: pygame.event.Event):
-        assert not self._active_candidate.dragged if self._active_candidate else True
-
-        for candidate_sprite in self._candidate_sprites:
-            if (  # pressed on a valid candidate
-                candidate_sprite.valid
-                and candidate_sprite.rect.collidepoint(event.pos)
-                and candidate_sprite.on_shape(event.pos)
-            ):
-                if (  # pressed on a different candidate the one that is already active
-                    self._active_candidate != candidate_sprite
-                    and self._active_candidate is not None
-                ):
-                    self._active_candidate.reset_drag()
-
-                self._active_candidate = candidate_sprite
-                candidate_sprite.drag(event.pos)
+            self._candidate_sprites.append(
+                os.build_candidate_sprite(self._style["candidate"])
+            )
 
     def _candidate_setable(self, game: CarthographersGame) -> bool:
-        assert self._active_candidate is not None
+        # as we need game, canditate sprite and map sprite is does not make sense to put this into a sprite method
+        assert self._option_index is not None
 
-        map_position = self._map_sprite.grid_coord(self._active_candidate.rect.topleft)
+        candidate_postion = self._candidate_sprites[self._option_index].rect.topleft
+        map_position = self._map_sprite.pixel2map_coords(candidate_postion)
         if map_position is None:
             return False
 
+        shape_coords = self._candidate_sprites[self._option_index].coords
         map_coords = game.map_sheet.transform_to_map_coords(
-            self._active_candidate.shape_coords, map_position, 0, False
+            shape_coords, map_position, 0, False
         )
         return game.map_sheet.is_setable(map_coords, game.ruin)
 
+    def _on_mouse_down(self, event: pygame.event.Event):
+        # press on a valid candidate
+        for i, candidate_sprite in enumerate(self._candidate_sprites):
+            if candidate_sprite.on_shape(event.pos) and candidate_sprite.valid:
+                if i != self._option_index and self._option_index is not None:
+                    self._candidate_sprites[self._option_index].reset_drag()
+
+                self._option_index = i
+                candidate_sprite.drag(event.pos)
+
     def _on_mouse_move(self, event: pygame.event.Event, game: CarthographersGame):
-        if self._active_candidate is not None and self._active_candidate.dragged:
-            self._active_candidate.drag(event.pos)
+        if (
+            self._option_index is not None
+            and self._candidate_sprites[self._option_index].dragged
+        ):
+            cand = self._candidate_sprites[self._option_index]
+            cand.drag(event.pos)
+            cand.setable = self._candidate_setable(game)
 
-            self._active_candidate.setable = self._candidate_setable(game)
-
-    def _on_mouse_up(self, event: pygame.event.Event, game: CarthographersGame):
-        if self._active_candidate is not None and self._active_candidate.dragged:
-            self._active_candidate.drag(event.pos)
-            self._active_candidate.drop()
+    def _on_mouse_up(self, game: CarthographersGame):
+        if (
+            self._option_index is not None
+            and self._candidate_sprites[self._option_index].dragged
+        ):
+            cand = self._candidate_sprites[self._option_index]
+            cand.drop()
 
             if self._candidate_setable(game):
-                self._active_candidate.rect.topleft = self._map_sprite.pixel_coord(
-                    self._map_sprite.grid_coord(self._active_candidate.rect.topleft)
-                )
+                cand.rect.topleft = self._map_sprite.snap_pixel_coord(cand.rect.topleft)
             else:
-                self._active_candidate.reset_drag()
-                self._active_candidate = None
+                cand.reset_drag()
+                self._option_index = None
 
-    # def _on_next_button_click(self):
-    #     self._map_sprite = None
-    #     self._option_sprites = []
-    #     self._candidate_sprites = []
-    #     self._score_table_sprite = None
-    #     self._next_button_sprite = None
+        # if self._next_button_sprite.rect.collidepoint(event.pos):
+
+    def _on_scroll(self, event: pygame.event.Event):
+        for i, option in enumerate(self._option_sprites):
+            if option.valid and option.rect.collidepoint(pygame.mouse.get_pos()):
+                if i == self._option_index:
+                    cand = self._candidate_sprites[i]
+                    cand.reset_drag()
+                    self._option_index = None
+
+                option.rotation = (option.rotation + event.y) % 4
+                self._candidate_sprites[i] = option.build_candidate_sprite(
+                    self._style["candidate"]
+                )
+
+    def _on_key_up(self, event: pygame.event.Event):
+        if event.unicode in ("m", "M"):
+            for i, option in enumerate(self._option_sprites):
+                if option.valid and option.rect.collidepoint(pygame.mouse.get_pos()):
+                    if i == self._option_index:
+                        cand = self._candidate_sprites[i]
+                        cand.reset_drag()
+                        self._option_index = None
+
+                option.mirror = not option.mirror
+                self._candidate_sprites[i] = option.build_candidate_sprite(
+                    self._style["candidate"]
+                )
+
+    def _on_new_move(self, game: CarthographersGame):
+        self._build_options(game)
+        self._map_sprite.map_values = game.map_sheet.to_list()
+        self._map_sprite.ruin_coords = game.map_sheet.ruin_coords
 
     def _event_loop(self, game: CarthographersGame):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self._closed = True
+            if event.type == pygame.MOUSEMOTION:
+                self._on_mouse_move(event, game)
             if event.type == pygame.MOUSEBUTTONDOWN:
                 self._on_mouse_down(event)
             if event.type == pygame.MOUSEBUTTONUP:
-                self._on_mouse_up(event, game)
-            if event.type == pygame.MOUSEMOTION:
-                self._on_mouse_move(event)
-            # if event.type == pygame.KEYDOWN:
-            #     self._on_key_press(event.key)
+                self._on_mouse_up(game)
+            if event.type == pygame.MOUSEWHEEL:
+                self._on_scroll(event)
+            if event.type == pygame.KEYUP:
+                self._on_key_up(event)
+            if event.type == self._NEW_MOVE_EVENT:
+                self._on_new_move(game)
 
     def render(self, game: CarthographersGame):
-        if None in self._all_sprites():
-            logging.debug("Building sprites again.")
-            self._rebuild_map(game)
-            self._rebuild_options(game)
-            # self._build_score_table_sprite(game)
-            # self._build_next_button_sprite(game)
-
         self._event_loop(game)
 
         for sprite in self._all_sprites():

@@ -1,17 +1,11 @@
 """Sprites represent elemets of the game which can be drawn on the screen. I.e. they contain an image and a rect.
-Sprites can contain a set of attributes describing their logical state. The logical state is always refelcted
-in the image and rect of the sprite.
-The set of attributes are seperate into changable and fixed options. For the changable attributes
-setter functions are implemented which update the image and/or rect of the sprite.
-To make this pattern consistent all sprites are derived from the abstract MutabelSprite class which 
-enforces the implementation of the _build_image and _build_rect functions.
-The distinction on whether an attribute is changable or fixed is done depending on whether the attribute can change during its livetime.
+Sprites can contain a set of attributes describing their logical state. 
+The logical state is always refelcted in the image and rect of the sprite.
 Getter functions are implemented only when the attribute needs to be accessed from outside the sprite.
 Sprites only get the style dictionairies with elements they need.
 """
 
 from typing import Tuple, List, FrozenSet, Dict, Any, Union, Set
-from abc import ABC, abstractmethod
 
 import pygame
 
@@ -20,20 +14,7 @@ from ..base import get_asset_path
 from ...model.general import Terrains
 
 
-class MutableSprite(pygame.sprite.Sprite, ABC):
-    def __init__(self):
-        super().__init__()
-
-    @abstractmethod
-    def _build_image(self):
-        pass
-
-    @abstractmethod
-    def _build_rect(self):
-        pass
-
-
-class ScreenSprite(MutableSprite):
+class ScreenSprite(pygame.sprite.Sprite):
     def __init__(self, screen_style: Dict[str, Any]):
         """Background sprite for the game screen.
 
@@ -42,12 +23,8 @@ class ScreenSprite(MutableSprite):
         """
         super().__init__()
 
-        # changable options
-
-        # fixed options
         self._style = screen_style
 
-        # build
         self.image = None
         self.rect = None
         self._build_image()
@@ -71,10 +48,10 @@ class ScreenSprite(MutableSprite):
         self.rect.topleft = (0, 0)
 
 
-class CandidateSprite(MutableSprite):
+class CandidateSprite(pygame.sprite.Sprite):
     def __init__(
         self,
-        shape_coords: FrozenSet[Tuple[int, int]],
+        coords: FrozenSet[Tuple[int, int]],
         terrain: Terrains,
         valid: bool,
         initial_position: Tuple[int, int],
@@ -93,28 +70,22 @@ class CandidateSprite(MutableSprite):
         """
         super().__init__()
 
-        # changable options
-        self._shape_coords = shape_coords
-
-        # fixed options
+        self._coords = coords
         self._terrain = terrain
         self._initial_position = initial_position
         self._valid = valid
         self._candidate_style = candidate_style
         self._field_style = field_style
+        self._drag_offset = None
 
-        # build
         self.image = None
         self.rect = None
         self._build_image()
         self._build_rect()
 
-        # internals
-        self._drag_offset = None
-
     def _build_image(self):
         self.image = AreaSurf(
-            self._shape_coords,
+            self._coords,
             self._terrain,
             self._candidate_style["frame_width"],
             self._candidate_style["frame_color"],
@@ -158,22 +129,19 @@ class CandidateSprite(MutableSprite):
         Returns:
             bool: Whether the candidate contains the position.
         """
-        # TODO use only fields as collision detection
-        return self.rect.collidepoint(position)
+        if not self.rect.collidepoint(position):
+            return False
+
+        position = (
+            (position[0] - self.rect.topleft[0]) // self._field_style["size"],
+            (position[1] - self.rect.topleft[1]) // self._field_style["size"],
+        )
+        return position in self._coords
 
     def reset_drag(self):
         """Reset the drag offset."""
         self._drag_offset = None
         self.rect.topleft = self._initial_position
-
-    @property
-    def shape_coords(self):
-        return self._shape_coords
-
-    @shape_coords.setter
-    def shape_coords(self, value):
-        self._shape_coords = value
-        self._build_image()
 
     @property
     def valid(self):
@@ -183,8 +151,12 @@ class CandidateSprite(MutableSprite):
     def dragged(self):
         return self._drag_offset is not None
 
+    @property
+    def coords(self):
+        return self._coords
 
-class MapSprite(MutableSprite):
+
+class MapSprite(pygame.sprite.Sprite):
     def __init__(
         self,
         map_values: List[List[Terrains]],
@@ -203,15 +175,11 @@ class MapSprite(MutableSprite):
         """
         super().__init__()
 
-        # changable options
         self._map_values = map_values
-
-        # fixed options
         self._ruin_coords = ruin_coords
         self._map_style = map_style
         self._field_style = field_style
 
-        # build
         self.image = None
         self.rect = None
         self._build_image()
@@ -252,7 +220,7 @@ class MapSprite(MutableSprite):
         self.rect = self.image.get_rect()
         self.rect.topleft = self._map_style["position"]
 
-    def grid_coord(self, pixel_pos: Tuple[int, int]) -> Tuple[int, int]:
+    def pixel2map_coords(self, pixel_pos: Tuple[int, int]) -> Tuple[int, int]:
         """Returns the snapped grid coordinates of the field the mouse is currently over.
 
         Args:
@@ -274,7 +242,7 @@ class MapSprite(MutableSprite):
 
         return grid_coord
 
-    def pixel_coord(self, grid_pos: Tuple[int, int]) -> Tuple[int, int]:
+    def map2pixel_coord(self, grid_pos: Tuple[int, int]) -> Tuple[int, int]:
         """Returns the pixel coordinates of the topleft od the field at the given grid coordinates.
 
         Args:
@@ -306,10 +274,10 @@ class MapSprite(MutableSprite):
             Tuple[int, int]: Pixel coordinates of the topleft of the field the mouse is currently over.
                 None if the mouse is not over the clickable area of the map.
         """
-        grid_coord = self.grid_coord(pixel_pos)
+        grid_coord = self.pixel2map_coords(pixel_pos)
         if grid_coord is None:
             return None
-        return self.pixel_coord(grid_coord)
+        return self.map2pixel_coord(grid_coord)
 
     @property
     def map_values(self):
@@ -320,41 +288,34 @@ class MapSprite(MutableSprite):
         self._map_values = value
         self._build_image()
 
+    @property
+    def ruin_coords(self):
+        return self._ruin_coords
 
-class OptionSprite(MutableSprite):
+    @ruin_coords.setter
+    def ruin_coords(self, value):
+        self._ruin_coords = value
+        self._build_image()
+
+
+class OptionSprite(pygame.sprite.Sprite):
     def __init__(
         self,
         shape_coords: FrozenSet[Tuple[int, int]],
-        rotation: int,
-        mirror: bool,
         terrain: Terrains,
         coin: bool,
         valid: bool,
         single_field: bool,
         option_col: int,
         option_style: Dict[str, Any],
-        candidate_style: Dict[str, Any],
         field_style: Dict[str, Any],
     ) -> None:
         """Visualization of a single option in the current state of the game.
-        Contains also the state of the option (selected, valid, rotation, mirror, index).
 
         Args:
-            shape_coords (FrozenSet[Tuple[int, int]]): Original oordinates of the option shape.
-            rotation (int): Rotation of the option.
-            mirror (bool): Whether the option is mirrored.
-            coin (bool): Whether the option contains a coin.
-            valid (bool): Whether the option is valid.
-            single_field (bool): Whether the option is a single field.
-            option_col (int): At which "place" the option is positioned.
         """
         super().__init__()
 
-        # changable options
-        self._rotation = rotation
-        self._mirror = mirror
-
-        # fixed options
         self._shape_coords = shape_coords
         self._valid = valid
         self._terrain = terrain
@@ -362,10 +323,10 @@ class OptionSprite(MutableSprite):
         self._option_col = option_col
         self._single_field = single_field
         self._option_style = option_style
-        self._candidate_style = candidate_style
         self._field_style = field_style
+        self._rotation = 0
+        self._mirror = False
 
-        # build
         self.image = None
         self.rect = None
         self._build_image()
@@ -386,7 +347,7 @@ class OptionSprite(MutableSprite):
 
         self.image.blit(
             AreaSurf(
-                self.transformed_coords(),
+                self._transform_coords(),
                 None,
                 self._option_style["candidate_frame_width"],
                 self._option_style["candidate_frame_color"],
@@ -426,7 +387,7 @@ class OptionSprite(MutableSprite):
             self._option_style["position"][1],
         )
 
-    def transformed_coords(self):
+    def _transform_coords(self):
         """Transforms the shape coordinates depending on the current state of the option.
         I.e. rotates and mirrors the shape coordinates to obtain the coorindates to display.
         Tge shape_coord attribute is not changed.
@@ -453,19 +414,19 @@ class OptionSprite(MutableSprite):
 
         return coords
 
-    def initial_candidate_sprite(self):
+    def build_candidate_sprite(self, candidate_style: Dict[str, Any]):
         """Returns a candidate sprite with the same shape as the option.
         The candidate sprite is not yet placed on the map.
         """
         return CandidateSprite(
-            self.transformed_coords(),
+            self._transform_coords(),
             self._terrain,
             self._valid,
             (
                 self.rect.topleft[0] + self._option_style["shape_offset"][0],
                 self.rect.topleft[1] + self._option_style["shape_offset"][1],
             ),
-            self._candidate_style,
+            candidate_style,
             self._field_style,
         )
 
@@ -486,6 +447,10 @@ class OptionSprite(MutableSprite):
     def mirror(self, mirror):
         self._mirror = mirror
         self._build_image()
+
+    @property
+    def valid(self):
+        return self._valid
 
 
 # class ScoreTableSprite(pygame.sprite.Sprite):

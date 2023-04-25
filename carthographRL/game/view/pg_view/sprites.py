@@ -5,11 +5,11 @@ Getter functions are implemented only when the attribute needs to be accessed fr
 Sprites only get the style dictionairies with elements they need.
 """
 
-from typing import Tuple, List, FrozenSet, Dict, Any, Union, Set
+from typing import Tuple, FrozenSet, Dict, Any
 
 import pygame
 
-from .surfaces import ImageRectSurf, AreaSurf, FieldSurf
+from .surfaces import ImageRectSurf, AreaSurf, FieldSurf, TableSurf
 from ..base import get_asset_path
 from ...model.general import Terrains
 
@@ -468,18 +468,12 @@ class NextButtonSprite(pygame.sprite.Sprite):
             self._style["image_size"],
             self._style["image_offset"],
             self._style["opacity"],
+            self._style["text"],
+            self._style["text_font"],
+            self._style["text_color"],
+            self._style["text_size"],
+            self._style["text_offset"],
         )
-
-        if self._style["text"] is not None:
-            raise NotImplementedError("Text not implemented yet.")
-            # text_surf = TextSurf(
-            #     self._style["text"],
-            #     self._style["text_size"],
-            #     self._style["text_color"],
-            #     self._style["text_offset"],
-            #     self._style["text_font"],
-            # )
-            # self.image.blit(text_surf, self._style["text_offset"])
 
         if not self._valid:
             self.image = pygame.transform.grayscale(self.image)
@@ -527,6 +521,81 @@ class OptionsBackgroundSprite(pygame.sprite.Sprite):
         self.rect.topleft = self._style["position"]
 
 
-# class ScoreTableSprite(pygame.sprite.Sprite):
-#     # TODO
-#     pass
+class ScoreTableSprite(pygame.sprite.Sprite):
+    def __init__(self, style: Dict[str, Any]) -> None:
+        super().__init__()
+
+        self._style = style
+        self._data = [{}]
+        self._season = 0
+
+        self.image = None
+        self.rect = None
+        self._build_image()
+        self._build_rect()
+
+    def _build_image(self):
+        self.image = ImageRectSurf(
+            self._style["size"],
+            self._style["color"],
+            self._style["frame_color"],
+            self._style["frame_width"],
+            self._style["frame_rounding"],
+            get_asset_path(self._style["image"]),
+            self._style["image_size"],
+            self._style["image_offset"],
+            self._style["opacity"],
+        )
+
+        font = pygame.font.SysFont(self._style["font"], self._style["font_size"])
+
+        table_surfs = [
+            [None for _ in range(len(self._style["col_names"]))]
+            for _ in range(len(self._style["row_names"]))
+        ]
+
+        for i, name in enumerate(self._style["col_names"]):
+            table_surfs[0][i] = font.render(name, True, self._style["font_color"])
+
+        for j, row_name in enumerate(self._style["row_names"]):
+            table_surfs[j][0] = font.render(row_name, True, self._style["font_color"])
+
+        for i, season_data in enumerate(self._data):
+            for j, data in enumerate(season_data.values()):
+                table_surfs[j + 1][i + 1] = font.render(
+                    " - " if i > self._season else str(data),
+                    True,
+                    self._style["font_color"],
+                )
+
+        self.image.blit(
+            TableSurf(
+                table_surfs,
+                self._style["table_frame_width"],
+                self._style["table_frame_width"],
+                self._style["table_frame_color"],
+            ),
+            self._style["table_offset"],
+        )
+
+    def _build_rect(self):
+        self.rect = self.image.get_rect()
+        self.rect.topleft = self._style["position"]
+
+    @property
+    def data(self):
+        return self._data
+
+    @data.setter
+    def data(self, data):
+        self._data = data
+        self._build_image()
+
+    @property
+    def season(self):
+        return self._season
+
+    @season.setter
+    def season(self, season):
+        self._season = season
+        self._build_image()

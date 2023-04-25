@@ -5,7 +5,7 @@ Surfaces have no position. To draw them onto the screen thy should be encapsulat
 As some surfaces are used in different sprite classes they are defined here so that they can be reused.
 On the other hand sprites should contain as less drawing logic as possible."""
 
-from typing import Tuple, FrozenSet, Dict, Any
+from typing import Tuple, FrozenSet, Dict, Any, Union, List
 from pathlib import Path
 
 import pygame
@@ -82,6 +82,11 @@ class ImageRectSurf(pygame.Surface):
         image_size: Tuple[int, int],
         image_offset: Tuple[int, int],
         opacity: int,
+        text: str = None,
+        font: str = None,
+        text_color: Tuple[int, int, int] = None,
+        text_size: int = None,
+        text_offset: Tuple[int, int] = None,
     ):
         """Create a surface with a rectangular frame, an optional infill and an image.
         As for nearly all UI elements we draw an image on a rect background this acts as a wrapper for the RectSurf and ImageSurf classes.
@@ -106,6 +111,11 @@ class ImageRectSurf(pygame.Surface):
         image_size = image_size or size
         if image is not None:
             self.blit(ImageSurf(image_size, image), image_offset)
+
+        if text is not None:
+            font = pygame.font.SysFont(font, text_size)
+            text_surf = font.render(text, True, text_color)
+            self.blit(text_surf, text_offset)
 
         self.set_alpha(opacity)
 
@@ -212,3 +222,69 @@ class AreaSurf(pygame.Surface):
 
         for edge in edges:
             pygame.draw.rect(self, frame_color, edge)
+
+
+class TableSurf(pygame.Surface):
+    def __init__(
+        self,
+        data: List[List[pygame.Surface]],
+        vertical_line_widths: Union[int, List[int]],
+        horizontal_line_widths: Union[int, List[int]],
+        line_color: Tuple[int, int, int],
+        row_heights: Union[int, List[int]] = None,
+        col_widths: Union[int, List[int]] = None,
+    ):
+        if isinstance(vertical_line_widths, int):
+            vertical_line_widths = [vertical_line_widths] * (len(data[0]) + 1)
+        if isinstance(horizontal_line_widths, int):
+            horizontal_line_widths = [horizontal_line_widths] * (len(data) + 1)
+
+        if isinstance(row_heights, int):
+            row_heights = [row_heights] * len(data)
+        elif row_heights is None:
+            row_heights = [
+                max(s.get_height() for s in row if s is not None) for row in data
+            ]
+
+        if isinstance(col_widths, int):
+            col_widths = [col_widths] * len(data[0])
+        elif col_widths is None:
+            col_widths = [
+                max(s.get_width() for s in col if s is not None) for col in zip(*data)
+            ]
+
+        super().__init__(
+            (
+                sum(col_widths) + sum(vertical_line_widths),
+                sum(row_heights) + sum(horizontal_line_widths),
+            ),
+            pygame.SRCALPHA,
+        )
+        self.fill((0, 0, 0, 0))
+
+        for i, row in enumerate(data):
+            for j, surf in enumerate(row):
+                if surf is not None:
+                    self.blit(
+                        surf,
+                        (
+                            sum(col_widths[:j]) + sum(vertical_line_widths[: j + 1]),
+                            sum(row_heights[:i]) + sum(horizontal_line_widths[: i + 1]),
+                        ),
+                    )
+
+        for i in range(len(vertical_line_widths)):
+            x = sum(col_widths[:i]) + sum(vertical_line_widths[:i])
+            pygame.draw.rect(
+                self,
+                line_color,
+                (x, 0, vertical_line_widths[i], self.get_height()),
+            )
+
+        for j in range(len(horizontal_line_widths)):
+            y = sum(row_heights[:j]) + sum(horizontal_line_widths[:j])
+            pygame.draw.rect(
+                self,
+                line_color,
+                (0, y, self.get_width(), horizontal_line_widths[j]),
+            )

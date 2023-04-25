@@ -15,7 +15,7 @@ from .sprites import (
     OptionSprite,
     CandidateSprite,
     OptionsBackgroundSprite,
-    # ScoreTableSprite,
+    ScoreTableSprite,
     NextButtonSprite,
     # InfoSprite,
 )
@@ -60,8 +60,9 @@ class PygameView(View):
         )
         self._option_sprites: List[OptionSprite] = []
         self._candidate_sprites: List[CandidateSprite] = []
-        # self._score_table_sprite = None
+        self._score_table_sprite = ScoreTableSprite(self._style["score_table"])
         self._next_button_sprite = NextButtonSprite(self._style["next_button"])
+        # self._info_sprite = None
 
         # view state
         self._option_index = None
@@ -77,8 +78,9 @@ class PygameView(View):
                 self._background_sprite,
                 self._map_sprite,
                 self._options_background_sprite,
-                # self._score_table_sprite,
+                self._score_table_sprite,
                 self._next_button_sprite,
+                # self._info_sprite,
             ]
             + self._option_sprites
             + self._candidate_sprites
@@ -222,6 +224,7 @@ class PygameView(View):
         self._map_sprite.map_values = game.map_sheet.to_list()
         self._map_sprite.ruin_coords = game.map_sheet.ruin_coords
         self._next_button_sprite.valid = False
+        self._score_table_sprite.data = game.season_stats
 
     def _event_loop(self, game: CarthographersGame):
         for event in pygame.event.get():
@@ -249,7 +252,7 @@ class PygameView(View):
         pygame.display.flip()
 
         if pygame.event.peek(self._NEW_MOVE_EVENT):
-            # option index, map position, rotation, mirror
+            # option, map position, rotation, mirror
             action = (
                 game.exploration_card.options[self._option_index],
                 self._map_sprite.pixel2map_coord(

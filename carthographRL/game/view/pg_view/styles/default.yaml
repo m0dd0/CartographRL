@@ -2,7 +2,7 @@ title: Carthographers
 
 screen:
   # screen has no position
-  size: [1000, 700]
+  size: [1000, 800]
   color: [255, 255, 255]
   image: null
   image_size: null
@@ -26,7 +26,7 @@ map:
   opacity: 255
 
 option:
-  position: [30, 400]
+  position: [50, 420]
   size: [150, 180]
   color: [255, 255, 255]
   image: null
@@ -36,7 +36,7 @@ option:
   frame_color: [0, 0, 0]
   frame_rounding: 0
   opacity: 255
-  spacing: 30
+  spacing: 20
   shape_offset: [15, 15]
   candidate_frame_width: 3
   candidate_frame_color: [0, 0, 0]
@@ -53,7 +53,7 @@ option:
     opacity: 255
 
 single_option:
-  position: [30, 610]
+  position: [50, 620]
   size: [60, 60]
   color: [255, 255, 255]
   image: null
@@ -63,7 +63,7 @@ single_option:
   frame_color: [0, 0, 0]
   frame_rounding: 0
   opacity: 255
-  spacing: 30
+  spacing: 20
   shape_offset: [15, 15]
   candidate_frame_width: 3
   candidate_frame_color: [0, 0, 0]
@@ -116,11 +116,15 @@ next_button:
   frame_color: [0, 0, 0]
   frame_rounding: 0
   opacity: 255
-  text: null
+  text: "Next"
+  text_font: "comicsansms"
+  text_size: 30
+  text_color: [0, 0, 0]
+  text_offset: [10, 10]
 
 options_background:
-  position: [20, 390]
-  size: [400, 200]
+  position: [30, 400]
+  size: [420, 300]
   color: [255, 255, 255]
   image: null
   image_size: null
@@ -129,3 +133,24 @@ options_background:
   frame_color: [0, 0, 0]
   frame_rounding: 0
   opacity: 255
+
+score_table:
+  position: [400, 30]
+  size: [600, 300]
+  color: [255, 255, 255]
+  image: null
+  image_size: null
+  image_offset: [0, 0]
+  frame_width: 1
+  frame_color: [0, 0, 0]
+  frame_rounding: 0
+  opacity: 255
+  table_offset: [10, 10]
+  font: comicsansms
+  font_size: 20
+  font_color: [0, 0, 0]
+  table_frame_color: [0, 0, 0]
+  table_frame_width: 3
+  table_frame_rounding: 0
+  col_names: ["", " Spring ", " Summer ", " Autumn ", " Winter ", " Total "]
+  row_names: ["", " Option Coins ", " Surrounded Mountains ", " Monsters ", " Task A ", " Task B "]

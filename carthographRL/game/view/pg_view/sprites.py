@@ -157,26 +157,18 @@ class CandidateSprite(pygame.sprite.Sprite):
 
 
 class MapSprite(pygame.sprite.Sprite):
-    def __init__(
-        self,
-        map_values: List[List[Terrains]],
-        ruin_coords: FrozenSet[Tuple[int, int]],
-        map_style: Dict[str, Any],
-        field_style: Dict[str, Any],
-    ) -> None:
+    def __init__(self, map_style: Dict[str, Any], field_style: Dict[str, Any]) -> None:
         """Visualization of the map including the backgound of the map.
         Contains also essential properties for the map and some logic for placing candidates.
 
         Args:
-            map_values (List[List[Terrains]]): Map values.
-            ruin_coords (FrozenSet[Tuple[int, int]]): Coordinates of the ruins.
             map_style (Dict[str, Any]): Style dictionary for the map.
             field_style (Dict[str, Any]): Style dictionary for the fields in the map.
         """
         super().__init__()
 
-        self._map_values = map_values
-        self._ruin_coords = ruin_coords
+        self._map_values = [[]]
+        self._ruin_coords = []
         self._map_style = map_style
         self._field_style = field_style
 
@@ -220,7 +212,7 @@ class MapSprite(pygame.sprite.Sprite):
         self.rect = self.image.get_rect()
         self.rect.topleft = self._map_style["position"]
 
-    def pixel2map_coords(self, pixel_pos: Tuple[int, int]) -> Tuple[int, int]:
+    def pixel2map_coord(self, pixel_pos: Tuple[int, int]) -> Tuple[int, int]:
         """Returns the snapped grid coordinates of the field the mouse is currently over.
 
         Args:
@@ -274,7 +266,7 @@ class MapSprite(pygame.sprite.Sprite):
             Tuple[int, int]: Pixel coordinates of the topleft of the field the mouse is currently over.
                 None if the mouse is not over the clickable area of the map.
         """
-        grid_coord = self.pixel2map_coords(pixel_pos)
+        grid_coord = self.pixel2map_coord(pixel_pos)
         if grid_coord is None:
             return None
         return self.map2pixel_coord(grid_coord)
@@ -457,7 +449,7 @@ class NextButtonSprite(pygame.sprite.Sprite):
     def __init__(self, style: Dict[str, Any]) -> None:
         super().__init__()
 
-        self._clickable = False
+        self._valid = False
         self._style = style
 
         self.image = None
@@ -489,7 +481,7 @@ class NextButtonSprite(pygame.sprite.Sprite):
             # )
             # self.image.blit(text_surf, self._style["text_offset"])
 
-        if not self._clickable:
+        if not self._valid:
             self.image = pygame.transform.grayscale(self.image)
 
     def _build_rect(self):
@@ -497,13 +489,42 @@ class NextButtonSprite(pygame.sprite.Sprite):
         self.rect.topleft = self._style["position"]
 
     @property
-    def clickable(self):
-        return self._clickable
+    def valid(self):
+        return self._valid
 
-    @clickable.setter
-    def clickable(self, clickable):
-        self._clickable = clickable
+    @valid.setter
+    def valid(self, valid):
+        self._valid = valid
         self._build_image()
+
+
+class OptionsBackgroundSprite(pygame.sprite.Sprite):
+    def __init__(self, style: Dict[str, Any]) -> None:
+        super().__init__()
+
+        self._style = style
+
+        self.image = None
+        self.rect = None
+        self._build_image()
+        self._build_rect()
+
+    def _build_image(self):
+        self.image = ImageRectSurf(
+            self._style["size"],
+            self._style["color"],
+            self._style["frame_color"],
+            self._style["frame_width"],
+            self._style["frame_rounding"],
+            get_asset_path(self._style["image"]),
+            self._style["image_size"],
+            self._style["image_offset"],
+            self._style["opacity"],
+        )
+
+    def _build_rect(self):
+        self.rect = self.image.get_rect()
+        self.rect.topleft = self._style["position"]
 
 
 # class ScoreTableSprite(pygame.sprite.Sprite):

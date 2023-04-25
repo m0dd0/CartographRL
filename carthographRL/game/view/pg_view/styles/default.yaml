@@ -108,7 +108,7 @@ candidate:
 next_button:
   position: [500, 400]
   size: [90, 60]
-  color: [255, 255, 255]
+  color: [0, 255, 0]
   image: null
   image_size: null
   image_offset: [0, 0]
@@ -117,3 +117,15 @@ next_button:
   frame_rounding: 0
   opacity: 255
   text: null
+
+options_background:
+  position: [20, 390]
+  size: [400, 200]
+  color: [255, 255, 255]
+  image: null
+  image_size: null
+  image_offset: [0, 0]
+  frame_width: 1
+  frame_color: [0, 0, 0]
+  frame_rounding: 0
+  opacity: 255

@@ -14,6 +14,7 @@ from .sprites import (
     MapSprite,
     OptionSprite,
     CandidateSprite,
+    OptionsBackgroundSprite,
     # ScoreTableSprite,
     NextButtonSprite,
     # InfoSprite,
@@ -52,9 +53,11 @@ class PygameView(View):
         # sprites
         self._background_sprite = ScreenSprite(self._style["screen"])
         self._map_sprite: MapSprite = MapSprite(
-            [[]], [], self._style["map"], self._style["field"]
+            self._style["map"], self._style["field"]
         )
-        # self._options_background_sprite =
+        self._options_background_sprite = OptionsBackgroundSprite(
+            self._style["options_background"]
+        )
         self._option_sprites: List[OptionSprite] = []
         self._candidate_sprites: List[CandidateSprite] = []
         # self._score_table_sprite = None
@@ -73,7 +76,7 @@ class PygameView(View):
             [
                 self._background_sprite,
                 self._map_sprite,
-                # self._options_background_sprite,
+                self._options_background_sprite,
                 # self._score_table_sprite,
                 self._next_button_sprite,
             ]
@@ -136,7 +139,7 @@ class PygameView(View):
         assert self._option_index is not None
 
         candidate_postion = self._candidate_sprites[self._option_index].rect.topleft
-        map_position = self._map_sprite.pixel2map_coords(candidate_postion)
+        map_position = self._map_sprite.pixel2map_coord(candidate_postion)
         if map_position is None:
             return False
 
@@ -189,7 +192,6 @@ class PygameView(View):
             self._next_button_sprite.valid
             and self._next_button_sprite.rect.collidepoint(event.pos)
         ):
-            self._next_button_sprite.clicked = True
             pygame.event.post(pygame.event.Event(self._NEW_MOVE_EVENT))
 
     def _on_scroll(self, event: pygame.event.Event):
@@ -246,9 +248,18 @@ class PygameView(View):
 
         pygame.display.flip()
 
-        # if self._next_button_sprite.clicked:
-        #     self._next_button_sprite.clicked = False
-        #     return (self._option_sprites[self._option_index],
+        if pygame.event.peek(self._NEW_MOVE_EVENT):
+            # option index, map position, rotation, mirror
+            action = (
+                game.exploration_card.options[self._option_index],
+                self._map_sprite.pixel2map_coord(
+                    self._candidate_sprites[self._option_index].rect.topleft
+                ),
+                self._option_sprites[self._option_index].rotation,
+                self._option_sprites[self._option_index].mirror,
+            )
+            logging.info(f"Action: {action}")
+            return action
 
         return None
 

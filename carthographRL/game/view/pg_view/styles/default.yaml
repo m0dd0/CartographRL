@@ -105,15 +105,15 @@ candidate:
   frame_width_setable: 3
   frame_color_setable: [0, 0, 0]
 
-# options_background:
-
-# next button:
-#   size: [60, 90]
-#   color: [255, 255, 255]
-#   frame_width: 2
-#   frame_color: [0, 0, 0]
-#   frame_rounding: 0
-#   frame_image: null
-#   frame_image_size: null
-#   frame_image_offset: [0, 0]
-#   text: "Next"
+next_button:
+  position: [500, 400]
+  size: [90, 60]
+  color: [255, 255, 255]
+  image: null
+  image_size: null
+  image_offset: [0, 0]
+  frame_width: 2
+  frame_color: [0, 0, 0]
+  frame_rounding: 0
+  opacity: 255
+  text: null

@@ -453,25 +453,59 @@ class OptionSprite(pygame.sprite.Sprite):
         return self._valid
 
 
+class NextButtonSprite(pygame.sprite.Sprite):
+    def __init__(self, style: Dict[str, Any]) -> None:
+        super().__init__()
+
+        self._clickable = False
+        self._style = style
+
+        self.image = None
+        self.rect = None
+        self._build_image()
+        self._build_rect()
+
+    def _build_image(self):
+        self.image = ImageRectSurf(
+            self._style["size"],
+            self._style["color"],
+            self._style["frame_color"],
+            self._style["frame_width"],
+            self._style["frame_rounding"],
+            get_asset_path(self._style["image"]),
+            self._style["image_size"],
+            self._style["image_offset"],
+            self._style["opacity"],
+        )
+
+        if self._style["text"] is not None:
+            raise NotImplementedError("Text not implemented yet.")
+            # text_surf = TextSurf(
+            #     self._style["text"],
+            #     self._style["text_size"],
+            #     self._style["text_color"],
+            #     self._style["text_offset"],
+            #     self._style["text_font"],
+            # )
+            # self.image.blit(text_surf, self._style["text_offset"])
+
+        if not self._clickable:
+            self.image = pygame.transform.grayscale(self.image)
+
+    def _build_rect(self):
+        self.rect = self.image.get_rect()
+        self.rect.topleft = self._style["position"]
+
+    @property
+    def clickable(self):
+        return self._clickable
+
+    @clickable.setter
+    def clickable(self, clickable):
+        self._clickable = clickable
+        self._build_image()
+
+
 # class ScoreTableSprite(pygame.sprite.Sprite):
-#     # TODO
-#     pass
-
-
-# class NextButtonSprite(pygame.sprite.Sprite):
-#     # def __init__(self, clickable: bool, style) -> None:
-#     #     self.image = ImageRectSurf(
-#     #         style["next_button_size"],
-#     #         style["next_button_color"],
-#     #         style["next_button_frame_color"],
-#     #         style["next_button_frame_width"],
-#     #         style["next_button_frame_rounding"],
-#     #         get_asset_path(style["assets_folder"], style["next_button_image"]),
-#     #         style["next_button_image_size"],
-#     #         style["next_button_image_offset"],
-#     #     )
-
-#     #     if not clickable:
-#     #         self.image = pygame.transform.grayscale(self.image)
 #     # TODO
 #     pass

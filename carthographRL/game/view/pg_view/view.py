@@ -15,7 +15,7 @@ from .sprites import (
     OptionSprite,
     CandidateSprite,
     # ScoreTableSprite,
-    # NextButtonSprite,
+    NextButtonSprite,
     # InfoSprite,
 )
 
@@ -58,7 +58,7 @@ class PygameView(View):
         self._option_sprites: List[OptionSprite] = []
         self._candidate_sprites: List[CandidateSprite] = []
         # self._score_table_sprite = None
-        # self._next_button_sprite = None
+        self._next_button_sprite = NextButtonSprite(self._style["next_button"])
 
         # view state
         self._option_index = None
@@ -75,7 +75,7 @@ class PygameView(View):
                 self._map_sprite,
                 # self._options_background_sprite,
                 # self._score_table_sprite,
-                # self._next_button_sprite,
+                self._next_button_sprite,
             ]
             + self._option_sprites
             + self._candidate_sprites
@@ -95,7 +95,7 @@ class PygameView(View):
                 opt.terrain,
                 opt.coin,
                 game.map_sheet.is_setable_anywhere(opt.coords, game.ruin),
-                False,
+                len(game.exploration_card.options) > 2,
                 i,
                 self._style["option"],
                 self._style["field"],
@@ -146,6 +146,12 @@ class PygameView(View):
         )
         return game.map_sheet.is_setable(map_coords, game.ruin)
 
+    def _reset_candidate(self):
+        cand = self._candidate_sprites[self._option_index]
+        cand.reset_drag()
+        self._option_index = None
+        self._next_button_sprite.valid = False
+
     def _on_mouse_down(self, event: pygame.event.Event):
         # press on a valid candidate
         for i, candidate_sprite in enumerate(self._candidate_sprites):
@@ -165,7 +171,7 @@ class PygameView(View):
             cand.drag(event.pos)
             cand.setable = self._candidate_setable(game)
 
-    def _on_mouse_up(self, game: CarthographersGame):
+    def _on_mouse_up(self, event: pygame.event.Event, game: CarthographersGame):
         if (
             self._option_index is not None
             and self._candidate_sprites[self._option_index].dragged
@@ -175,19 +181,22 @@ class PygameView(View):
 
             if self._candidate_setable(game):
                 cand.rect.topleft = self._map_sprite.snap_pixel_coord(cand.rect.topleft)
+                self._next_button_sprite.valid = True
             else:
-                cand.reset_drag()
-                self._option_index = None
+                self._reset_candidate()
 
-        # if self._next_button_sprite.rect.collidepoint(event.pos):
+        if (
+            self._next_button_sprite.valid
+            and self._next_button_sprite.rect.collidepoint(event.pos)
+        ):
+            self._next_button_sprite.clicked = True
+            pygame.event.post(pygame.event.Event(self._NEW_MOVE_EVENT))
 
     def _on_scroll(self, event: pygame.event.Event):
         for i, option in enumerate(self._option_sprites):
             if option.valid and option.rect.collidepoint(pygame.mouse.get_pos()):
                 if i == self._option_index:
-                    cand = self._candidate_sprites[i]
-                    cand.reset_drag()
-                    self._option_index = None
+                    self._reset_candidate()
 
                 option.rotation = (option.rotation + event.y) % 4
                 self._candidate_sprites[i] = option.build_candidate_sprite(
@@ -199,9 +208,7 @@ class PygameView(View):
             for i, option in enumerate(self._option_sprites):
                 if option.valid and option.rect.collidepoint(pygame.mouse.get_pos()):
                     if i == self._option_index:
-                        cand = self._candidate_sprites[i]
-                        cand.reset_drag()
-                        self._option_index = None
+                        self._reset_candidate()
 
                 option.mirror = not option.mirror
                 self._candidate_sprites[i] = option.build_candidate_sprite(
@@ -212,6 +219,7 @@ class PygameView(View):
         self._build_options(game)
         self._map_sprite.map_values = game.map_sheet.to_list()
         self._map_sprite.ruin_coords = game.map_sheet.ruin_coords
+        self._next_button_sprite.valid = False
 
     def _event_loop(self, game: CarthographersGame):
         for event in pygame.event.get():
@@ -222,7 +230,7 @@ class PygameView(View):
             if event.type == pygame.MOUSEBUTTONDOWN:
                 self._on_mouse_down(event)
             if event.type == pygame.MOUSEBUTTONUP:
-                self._on_mouse_up(game)
+                self._on_mouse_up(event, game)
             if event.type == pygame.MOUSEWHEEL:
                 self._on_scroll(event)
             if event.type == pygame.KEYUP:
@@ -238,7 +246,11 @@ class PygameView(View):
 
         pygame.display.flip()
 
-        # return action
+        # if self._next_button_sprite.clicked:
+        #     self._next_button_sprite.clicked = False
+        #     return (self._option_sprites[self._option_index],
+
+        return None
 
     def cleanup(self):
         if not self.closed:

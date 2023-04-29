@@ -153,7 +153,7 @@ class CarthographersGame:
         self.season_stats[self.season]["coins_from_options"] = self.coins_from_options
         self.season_stats[self.season][
             "surrounded_mountains"
-        ] = self.map_sheet.surrounded_mountains()
+        ] = self.map_sheet.get_surrounded_mountains()
         self.season_stats[self.season][
             "monster_discount"
         ] = self.map_sheet.eval_monsters()

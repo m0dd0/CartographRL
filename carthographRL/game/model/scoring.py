@@ -268,7 +268,10 @@ def unzugaengliche_baronie(map_sheet: Map) -> int:
     for i in range(size):
         for j in range(size):
             for offset in range(size - max(i, j)):
-                if Terrains.EMPTY.value in map_sheet[i : i + offset, j : j + offset]:
+                if (
+                    Terrains.EMPTY.value
+                    in map_sheet.terrain_map[i : i + offset, j : j + offset]
+                ):
                     scores.append(offset)
                     break
 

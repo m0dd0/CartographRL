@@ -200,7 +200,12 @@ class Map:
             int: The number of mountains that are surrounded by other mountains.
         """
         coords = np.argwhere(self.terrain_map == Terrains.MOUNTAIN.value)
-        return sum([Cluster(c, self).is_surrounded() for c in coords])
+        return sum(
+            [
+                Cluster(frozenset({tuple(c.tolist())}), self).is_surrounded()
+                for c in coords
+            ]
+        )
 
     def clusters(self, terrain_type: Terrains) -> FrozenSet["Cluster"]:
         """Returns all clusters of a terrain type.

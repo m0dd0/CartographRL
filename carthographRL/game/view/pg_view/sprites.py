@@ -5,11 +5,11 @@ Getter functions are implemented only when the attribute needs to be accessed fr
 Sprites only get the style dictionairies with elements they need.
 """
 
-from typing import Tuple, FrozenSet, Dict, Any
+from typing import Tuple, FrozenSet, Dict, Any, List
 
 import pygame
 
-from .surfaces import ImageRectSurf, AreaSurf, FieldSurf, TableSurf
+from .surfaces import ImageRectSurf, AreaSurf, FieldSurf, TableSurf, ImageSurf
 from ..base import get_asset_path
 from ...model.general import Terrains
 
@@ -297,7 +297,6 @@ class OptionSprite(pygame.sprite.Sprite):
         terrain: Terrains,
         coin: bool,
         valid: bool,
-        single_field: bool,
         option_col: int,
         option_style: Dict[str, Any],
         field_style: Dict[str, Any],
@@ -313,7 +312,6 @@ class OptionSprite(pygame.sprite.Sprite):
         self._terrain = terrain
         self._coin = coin
         self._option_col = option_col
-        self._single_field = single_field
         self._option_style = option_style
         self._field_style = field_style
         self._rotation = 0
@@ -348,7 +346,7 @@ class OptionSprite(pygame.sprite.Sprite):
             self._option_style["shape_offset"],
         )
 
-        if not self._single_field:
+        if "coin" in self._option_style:
             coin_style = self._option_style["coin"]
             coin_surf = ImageRectSurf(
                 coin_style["size"],
@@ -497,6 +495,9 @@ class OptionsBackgroundSprite(pygame.sprite.Sprite):
         super().__init__()
 
         self._style = style
+        self._ruin = False
+        self._title = ""
+        self._time = 0
 
         self.image = None
         self.rect = None
@@ -516,9 +517,51 @@ class OptionsBackgroundSprite(pygame.sprite.Sprite):
             self._style["opacity"],
         )
 
+        font = pygame.font.SysFont(self._style["font"], self._style["font_size"])
+        title_surf = font.render(
+            f"{self._title} ({self._time})", True, self._style["font_color"]
+        )
+        self.image.blit(title_surf, self._style["title_offset"])
+
+        if self._ruin:
+            self.image.blit(
+                ImageSurf(
+                    self._style["ruin_icon_size"],
+                    get_asset_path(self._style["ruin_icon"]),
+                ),
+                self._style["ruin_icon_offset"],
+            )
+
     def _build_rect(self):
         self.rect = self.image.get_rect()
         self.rect.topleft = self._style["position"]
+
+    @property
+    def ruin(self):
+        return self._ruin
+
+    @ruin.setter
+    def ruin(self, ruin):
+        self._ruin = ruin
+        self._build_image()
+
+    @property
+    def title(self):
+        return self._title
+
+    @title.setter
+    def title(self, title):
+        self._title = title
+        self._build_image()
+
+    @property
+    def time(self):
+        return self._time
+
+    @time.setter
+    def time(self, time):
+        self._time = time
+        self._build_image()
 
 
 class ScoreTableSprite(pygame.sprite.Sprite):
@@ -526,8 +569,10 @@ class ScoreTableSprite(pygame.sprite.Sprite):
         super().__init__()
 
         self._style = style
+        self._season_lengths = [0, 0, 0, 0]
         self._data = [{}]
         self._season = 0
+        self._time_in_season = 0
 
         self.image = None
         self.rect = None
@@ -550,20 +595,24 @@ class ScoreTableSprite(pygame.sprite.Sprite):
         font = pygame.font.SysFont(self._style["font"], self._style["font_size"])
 
         table_surfs = [
-            [None for _ in range(len(self._style["col_names"]))]
-            for _ in range(len(self._style["row_names"]))
+            [None for _ in range(len(self._style["col_names"]) + 1)]
+            for _ in range(len(self._style["row_names"]) + 1)
         ]
 
         for i, name in enumerate(self._style["col_names"]):
-            table_surfs[0][i] = font.render(name, True, self._style["font_color"])
+            if i == self._season:
+                name = f"{name}({self._time_in_season}/{self._season_lengths[self._season]}) "
+            table_surfs[0][i + 1] = font.render(name, True, self._style["font_color"])
 
         for j, row_name in enumerate(self._style["row_names"]):
-            table_surfs[j][0] = font.render(row_name, True, self._style["font_color"])
+            table_surfs[j + 1][0] = font.render(
+                row_name, True, self._style["font_color"]
+            )
 
         for i, season_data in enumerate(self._data):
             for j, data in enumerate(season_data.values()):
                 table_surfs[j + 1][i + 1] = font.render(
-                    " - " if i > self._season else str(data),
+                    self._style["no_value"] if i > self._season else f" {data}",
                     True,
                     self._style["font_color"],
                 )
@@ -598,4 +647,75 @@ class ScoreTableSprite(pygame.sprite.Sprite):
     @season.setter
     def season(self, season):
         self._season = season
+        self._build_image()
+
+    @property
+    def time_in_season(self):
+        return self._time_in_season
+
+    @time_in_season.setter
+    def time_in_season(self, time_in_season):
+        self._time_in_season = time_in_season
+        self._build_image()
+
+    @property
+    def season_times(self):
+        return self._season_lengths
+
+    @season_times.setter
+    def season_times(self, season_lengths):
+        self._season_lengths = season_lengths
+        self._build_image()
+
+
+class InfoSprite(pygame.sprite.Sprite):
+    def __init__(self, style: Dict[str, Any]) -> None:
+        super().__init__()
+
+        self._style = style
+        self._scoring_cards = []
+
+        self.image = None
+        self.rect = None
+        self._build_image()
+        self._build_rect()
+
+    def _build_image(self):
+        self.image = ImageRectSurf(
+            self._style["size"],
+            self._style["color"],
+            self._style["frame_color"],
+            self._style["frame_width"],
+            self._style["frame_rounding"],
+            get_asset_path(self._style["image"]),
+            self._style["image_size"],
+            self._style["image_offset"],
+            self._style["opacity"],
+        )
+
+        font = pygame.font.SysFont(self._style["font"], self._style["font_size"])
+
+        for i, card in enumerate(self._scoring_cards):
+            text_surf = font.render(
+                f"{card.name}: {card.description}", True, self._style["font_color"]
+            )
+            self.image.blit(
+                text_surf,
+                (
+                    self._style["text_offset"][0],
+                    self._style["text_offset"][1] + i * text_surf.get_height(),
+                ),
+            )
+
+    def _build_rect(self):
+        self.rect = self.image.get_rect()
+        self.rect.topleft = self._style["position"]
+
+    @property
+    def scoring_cards(self):
+        return self._scoring_cards
+
+    @scoring_cards.setter
+    def scoring_cards(self, scoring_cards):
+        self._scoring_cards = scoring_cards
         self._build_image()

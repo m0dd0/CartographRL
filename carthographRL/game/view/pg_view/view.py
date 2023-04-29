@@ -1,6 +1,7 @@
 from typing import Tuple, List, FrozenSet, Dict, Any, Union, Set
 from pathlib import Path
 import logging
+from copy import deepcopy
 
 import pygame
 import yaml
@@ -17,7 +18,7 @@ from .sprites import (
     OptionsBackgroundSprite,
     ScoreTableSprite,
     NextButtonSprite,
-    # InfoSprite,
+    InfoSprite,
 )
 
 logging.basicConfig(level=logging.DEBUG)
@@ -62,7 +63,7 @@ class PygameView(View):
         self._candidate_sprites: List[CandidateSprite] = []
         self._score_table_sprite = ScoreTableSprite(self._style["score_table"])
         self._next_button_sprite = NextButtonSprite(self._style["next_button"])
-        # self._info_sprite = None
+        self._info_sprite = InfoSprite(self._style["info"])
 
         # view state
         self._option_index = None
@@ -80,7 +81,7 @@ class PygameView(View):
                 self._options_background_sprite,
                 self._score_table_sprite,
                 self._next_button_sprite,
-                # self._info_sprite,
+                self._info_sprite,
             ]
             + self._option_sprites
             + self._candidate_sprites
@@ -94,15 +95,18 @@ class PygameView(View):
         self._candidate_sprites = []
 
         # create regular option sprites
+        style = self._style["option"]
+        if len(game.exploration_card.options) > 2:
+            style = deepcopy(self._style["single_option"])
+            style["position"] = self._style["option"]["position"]
         for i, opt in enumerate(game.exploration_card.options):
             option_sprite = OptionSprite(
                 opt.coords,
                 opt.terrain,
                 opt.coin,
                 game.map_sheet.is_setable_anywhere(opt.coords, game.ruin),
-                len(game.exploration_card.options) > 2,
                 i,
-                self._style["option"],
+                style,
                 self._style["field"],
             )
             self._option_sprites.append(option_sprite)
@@ -123,7 +127,6 @@ class PygameView(View):
                 terrain,
                 False,
                 not setable_option_exists,
-                True,
                 i,
                 self._style["single_option"],
                 self._style["field"],
@@ -221,10 +224,22 @@ class PygameView(View):
 
     def _on_new_move(self, game: CarthographersGame):
         self._build_options(game)
+
         self._map_sprite.map_values = game.map_sheet.to_list()
         self._map_sprite.ruin_coords = game.map_sheet.ruin_coords
+
         self._next_button_sprite.valid = False
+
         self._score_table_sprite.data = game.season_stats
+        self._score_table_sprite.season_times = game.season_times
+        self._score_table_sprite.season = game.season
+        self._score_table_sprite.time_in_season = game.time
+
+        self._options_background_sprite.title = game.exploration_card.name
+        self._options_background_sprite.ruin = game.ruin
+        self._options_background_sprite.time = game.exploration_card.time
+
+        self._info_sprite.scoring_cards = game.scoring_cards
 
     def _event_loop(self, game: CarthographersGame):
         for event in pygame.event.get():

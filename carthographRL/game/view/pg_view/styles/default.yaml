@@ -26,7 +26,7 @@ map:
   opacity: 255
 
 option:
-  position: [50, 420]
+  position: [420, 80]
   size: [150, 180]
   color: [255, 255, 255]
   image: null
@@ -53,7 +53,7 @@ option:
     opacity: 255
 
 single_option:
-  position: [50, 620]
+  position: [420, 280]
   size: [60, 60]
   color: [255, 255, 255]
   image: null
@@ -106,7 +106,7 @@ candidate:
   frame_color_setable: [0, 0, 0]
 
 next_button:
-  position: [500, 400]
+  position: [850, 30]
   size: [90, 60]
   color: [0, 255, 0]
   image: null
@@ -123,8 +123,8 @@ next_button:
   text_offset: [10, 10]
 
 options_background:
-  position: [30, 400]
-  size: [420, 300]
+  position: [400, 30]
+  size: [420, 330]
   color: [255, 255, 255]
   image: null
   image_size: null
@@ -133,10 +133,17 @@ options_background:
   frame_color: [0, 0, 0]
   frame_rounding: 0
   opacity: 255
+  font: comicsansms
+  font_size: 20
+  font_color: [0, 0, 0]
+  title_offset: [20, 5]
+  ruin_icon: "ruin_icon.png"
+  ruin_icon_size: [35, 35]
+  ruin_icon_offset: [360, 10]
 
 score_table:
-  position: [400, 30]
-  size: [600, 300]
+  position: [30, 400]
+  size: [790, 260]
   color: [255, 255, 255]
   image: null
   image_size: null
@@ -145,12 +152,30 @@ score_table:
   frame_color: [0, 0, 0]
   frame_rounding: 0
   opacity: 255
-  table_offset: [10, 10]
+  table_offset: [50, 20]
   font: comicsansms
   font_size: 20
   font_color: [0, 0, 0]
   table_frame_color: [0, 0, 0]
   table_frame_width: 3
   table_frame_rounding: 0
-  col_names: ["", " Spring ", " Summer ", " Autumn ", " Winter ", " Total "]
-  row_names: ["", " Option Coins ", " Surrounded Mountains ", " Monsters ", " Task A ", " Task B "]
+  col_names: [" Spring ", " Summer ", " Autumn ", " Winter ", " Total "]
+  row_names: [" Option Coins ", " Surrounded Mountains ", " Monsters ", " Task A ", " Task B ", " Total "]
+  no_value: " - "
+
+info:
+  position: [30, 680]
+  size: [790, 100]
+  color: [255, 255, 255]
+  image: null
+  image_size: null
+  image_offset: [0, 0]
+  frame_width: 1
+  frame_color: [0, 0, 0]
+  frame_rounding: 0
+  opacity: 255
+  font: comicsansms
+  font_size: 20
+  font_color: [0, 0, 0]
+  text_offset: [20, 20]
+  

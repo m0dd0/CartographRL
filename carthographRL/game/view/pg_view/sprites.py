@@ -9,7 +9,7 @@ from typing import Tuple, FrozenSet, Dict, Any, List
 
 import pygame
 
-from .surfaces import ImageRectSurf, AreaSurf, FieldSurf, TableSurf, ImageSurf
+from .surfaces import ImageRectSurf, AreaSurf, FieldSurf, TableSurf, ImageSurf, TextSurf
 from ..base import get_asset_path
 from ...model.general import Terrains
 
@@ -694,18 +694,38 @@ class InfoSprite(pygame.sprite.Sprite):
         )
 
         font = pygame.font.SysFont(self._style["font"], self._style["font_size"])
+        font_bold = pygame.font.SysFont(
+            self._style["font"], self._style["font_size"], bold=True
+        )
 
-        for i, card in enumerate(self._scoring_cards):
-            text_surf = font.render(
-                f"{card.name}: {card.description}", True, self._style["font_color"]
+        h = 0
+        for card in self._scoring_cards:
+            name_surf = font_bold.render(
+                f"{card.name}: ", True, self._style["font_color"]
+            )
+            self.image.blit(
+                name_surf,
+                (
+                    self._style["text_offset"][0],
+                    self._style["text_offset"][1] + h,
+                ),
+            )
+            text_surf = TextSurf(
+                card.description,
+                font,
+                self._style["font_color"],
+                self._style["size"][0]
+                - self._style["text_offset"][0]
+                - name_surf.get_width(),
             )
             self.image.blit(
                 text_surf,
                 (
-                    self._style["text_offset"][0],
-                    self._style["text_offset"][1] + i * text_surf.get_height(),
+                    self._style["text_offset"][0] + name_surf.get_width(),
+                    self._style["text_offset"][1] + h,
                 ),
             )
+            h += text_surf.get_height()
 
     def _build_rect(self):
         self.rect = self.image.get_rect()

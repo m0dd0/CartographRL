@@ -7,11 +7,49 @@ On the other hand sprites should contain as less drawing logic as possible."""
 
 from typing import Tuple, FrozenSet, Dict, Any, Union, List
 from pathlib import Path
+import math
 
 import pygame
 
 from ..base import get_asset_path
 from ...model.general import Terrains
+
+
+class TextSurf(pygame.Surface):
+    def __init__(
+        self,
+        text: str,
+        font: pygame.font.Font,
+        font_color: Tuple[int, int, int],
+        max_width: int,
+        split_char: str = " ",
+    ):
+        if max_width is None:
+            max_width = math.inf
+
+        words = text.split(split_char)
+        lines = []
+        line = ""
+        for word in words:
+            if font.size(line + word)[0] < max_width:
+                line += word + split_char
+            else:
+                lines.append(line)
+                line = word + split_char
+        lines.append(line)
+        text_surfs = [font.render(line, True, font_color) for line in lines]
+
+        surf_size = (
+            max([text_surf.get_width() for text_surf in text_surfs]),
+            sum([text_surf.get_height() for text_surf in text_surfs]),
+        )
+        super().__init__(surf_size, pygame.SRCALPHA)
+        self.fill((0, 0, 0, 0))
+
+        h = 0
+        for text_surf in text_surfs:
+            self.blit(text_surf, (0, h))
+            h += text_surf.get_height()
 
 
 class RectSurf(pygame.Surface):

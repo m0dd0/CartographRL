@@ -2,7 +2,7 @@ title: Carthographers
 
 screen:
   # screen has no position
-  size: [1000, 800]
+  size: [1200, 1000]
   color: [255, 255, 255]
   image: null
   image_size: null
@@ -165,7 +165,7 @@ score_table:
 
 info:
   position: [30, 680]
-  size: [790, 100]
+  size: [790, 200]
   color: [255, 255, 255]
   image: null
   image_size: null

@@ -1,21 +1,19 @@
 from abc import ABC, abstractmethod
 from typing import List
 from enum import Enum
+import importlib
 
 from pydantic import BaseModel, validator, conlist, PositiveInt
 
 
-class FieldTypes(Enum):
-    EMPTY = " "
-    MOUNTAIN = "M"
-    RUIN = "R"
-
-
 class Terrains(Enum):
+    EMPTY = " "
+    WASTELAND = "X"
     WATER = "W"
     FOREST = "F"
     MOUNTAIN = "M"
     FIELD = "L"
+    VILLAGE = "V"
 
 
 class ScoringTypes(Enum):
@@ -27,13 +25,31 @@ class ScoringTypes(Enum):
 
 class Map(BaseModel):
     name: str
-    fields: List[List[FieldTypes]]
+    fields: List[List[Terrains]]
+    ruins: List[List[bool]]
 
     @validator("fields")
-    def field_must_be_square(cls, fields):
-        if all(len(row) == len(fields) for row in fields):
-            raise ValueError("Map must be quadratic")
+    @classmethod
+    def field_must_be_rectangle(cls, fields):
+        if not all(len(row) == len(fields[0]) for row in fields):
+            raise ValueError("Fields must be rectangular")
         return fields
+
+    @validator("ruins")
+    @classmethod
+    def ruins_must_be_rectangle(cls, ruins):
+        if not all(len(row) == len(ruins[0]) for row in ruins):
+            raise ValueError("Ruins must be rectangular")
+        return ruins
+
+    @validator("ruins")
+    @classmethod
+    def ruins_must_be_same_size(cls, ruins, values):
+        if len(ruins) != len(values["fields"]) or len(ruins[0]) != len(
+            values["fields"][0]
+        ):
+            raise ValueError("Ruins must be same size as fields")
+        return ruins
 
 
 class ExplorationOption(BaseModel):
@@ -42,9 +58,10 @@ class ExplorationOption(BaseModel):
     terrain: Terrains
 
     @validator("shape")
-    def shape_must_be_square(cls, shape):
-        if all(len(row) == len(shape) for row in shape):
-            raise ValueError("Shape must be quadratic")
+    @classmethod
+    def shape_must_be_rectangle(cls, shape):
+        if not all(len(row) == len(shape[0]) for row in shape):
+            raise ValueError("Shape must be rectangular")
         return shape
 
 
@@ -64,12 +81,20 @@ class ScoringCard(BaseModel):
     evaluation_function: str
 
     @validator("evaluation_function")
+    @classmethod
     def evaluation_function_must_be_defined(cls, evaluation_function):
         # check that a function with this name exists in the scoring_functions module
-        pass
+        scoring_functions = importlib.import_module(
+            "cartographRL.model.game_assets.scoring_functions"
+        )
+        if not hasattr(scoring_functions, evaluation_function):
+            raise ValueError(
+                f"Scoring function {evaluation_function} does not exist in scoring_functions"
+            )
+        return evaluation_function
 
 
-class CarthographersBaseModel(ABC):
+class CartographersBaseModel(ABC):
     def __init__(
         self,
         map: Map,

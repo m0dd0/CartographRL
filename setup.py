@@ -19,6 +19,7 @@ setuptools.setup(
         "nptyping",
         "matplotlib",
         "flask",
+        "pydantic",
     ],
     extras_require={"dev": ["black", "pylint", "jupyter", "ipykernel"]},
     include_package_data=True,

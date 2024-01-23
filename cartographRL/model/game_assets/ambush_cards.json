@@ -1,0 +1,37 @@
+[
+    {
+        "name": "Goblin Attack",
+        "card_id": 1,
+        "rotation": "CC",
+        "corner": "BR",
+        "shape": [[1,0,0],
+                  [0,1,0],
+                  [0,0,1]]
+    },
+    {
+        "name": "Bugbear Assault",
+        "card_id": 2,
+        "rotation": "C",
+        "corner": "TR",
+        "shape": [[1,0,1],
+                  [1,0,0]]
+    },
+    {
+        "name": "Kobold Onslaught",
+        "card_id": 3,
+        "rotation": "C",
+        "corner": "BL",
+        "shape": [[1,0],
+                  [1,1],
+                  [1,0]]
+    },
+    {
+        "name": "Gnoll Raid",
+        "card_id": 4,
+        "rotation": "CC",
+        "corner": "TL",
+        "shape": [[1,1],
+                  [1,0],
+                  [1,1]]
+    }
+]

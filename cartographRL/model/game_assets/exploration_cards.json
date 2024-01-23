@@ -1,0 +1,232 @@
+[
+    {
+        "name": "Great River",
+        "card_id": 7,
+        "time": 1,
+        "options": [
+            {
+                "coin": true,
+                "terrain": "W",
+                "shape": [[1],
+                         [1],
+                         [1]]
+            },
+            {
+                "coin": false,
+                "terrain": "W",
+                "shape": [[0,0,1],
+                          [0,1,1],
+                          [1,1,0]]
+            }
+        ]
+    },
+    {
+        "name": "Farmland",
+        "card_id": 8,
+        "time": 1,
+        "options": [
+            {
+                "coin": true,
+                "terrain": "L",
+                "shape": [[1],
+                          [1]]
+            },
+            {
+                "coin": false,
+                "terrain": "L",
+                "shape": [[0,1,0],
+                          [1,1,1],
+                          [0,1,0]]
+            }
+        ]
+    },
+    {
+        "name": "Hamlet",
+        "card_id": 9,
+        "time": 1,
+        "options": [
+            {
+                "coin": true,
+                "terrain": "V",
+                "shape": [[0,1],
+                          [1,1]]
+            },
+            {
+                "coin": false,
+                "terrain": "V",
+                "shape": [[1,1,1],
+                          [0,0,1]]
+            }
+        ]
+    },
+    {
+        "name": "Forgotten Forest",
+        "card_id": 10,
+        "time": 1,
+        "options": [
+            {
+                "coin": true,
+                "terrain": "F",
+                "shape": [[1,0],
+                          [0,1]]
+            },
+            {
+                "coin": false,
+                "terrain": "F",
+                "shape": [[1,0],
+                          [1,1],
+                          [0,1]]
+            }
+        ]
+    },
+    {
+        "name": "Hinterland Stream",
+        "card_id": 11,
+        "time": 2,
+        "options": [
+            {
+                "coin": false,
+                "terrain": "L",
+                "shape": [[1,1,1],
+                          [1,0,0],
+                          [1,0,0]]
+            },
+            {
+                "coin": false,
+                "terrain": "W",
+                "shape": [[1,1,1],
+                          [1,0,0],
+                          [1,0,0]]
+            }
+        ]
+    },
+    {
+        "name": "Homestead",
+        "card_id": 12,
+        "time": 2,
+        "options": [
+            {
+                "coin": false,
+                "terrain": "V",
+                "shape": [[1,0],
+                          [1,1],
+                          [1,0]]
+            },
+            {
+                "coin": false,
+                "terrain": "L",
+                "shape": [[1,0],
+                          [1,1],
+                          [1,0]]
+            }
+        ]
+    },
+    {
+        "name": "Orchad",
+        "card_id": 13,
+        "time": 2,
+        "options": [
+            {
+                "coin": false,
+                "terrain": "F",
+                "shape": [[1,1,1],
+                          [0,0,1]]
+            },
+            {
+                "coin": false,
+                "terrain": "L",
+                "shape": [[1,1,1],
+                          [0,0,1]]
+            }
+        ]
+    },
+    {
+        "name": "Treetop Village",
+        "card_id": 14,
+        "time": 2,
+        "options": [
+            {
+                "coin": false,
+                "terrain": "F",
+                "shape": [[0,0,1,1],
+                          [1,1,1,0]]
+            },
+            {
+                "coin": false,
+                "terrain": "V",
+                "shape": [[0,0,1,1],
+                          [1,1,1,0]]
+            }
+        ]
+    },
+    {
+        "name": "Marshlands",
+        "card_id": 15,
+        "time": 2,
+        "options": [
+            {
+                "coin": false,
+                "terrain": "F",
+                "shape": [[1,0,0],
+                          [1,1,1],
+                          [1,0,0]]
+            },
+            {
+                "coin": false,
+                "terrain": "W",
+                "shape": [[1,0,0],
+                          [1,1,1],
+                          [1,0,0]]
+            }
+        ]
+    },
+    {
+        "name": "Fishing Village",
+        "card_id": 16,
+        "time": 2,
+        "options": [
+            {
+                "coin": false,
+                "terrain": "V",
+                "shape": [[1,1,1,1]]
+            },
+            {
+                "coin": false,
+                "terrain": "F",
+                "shape": [[1,1,1,1]]
+            }
+        ]
+    },
+    {
+        "name": "Rift Lands",
+        "card_id": 17,
+        "time": 0,
+        "options": [
+            {
+                "coin": false,
+                "terrain": "F",
+                "shape": [[1]]
+            },
+            {
+                "coin": false,
+                "terrain": "V",
+                "shape": [[1]]
+            },
+            {
+                "coin": false,
+                "terrain": "L",
+                "shape": [[1]]
+            },
+            {
+                "coin": false,
+                "terrain": "W",
+                "shape": [[1]]
+            },
+            {
+                "coin": false,
+                "terrain": "A",
+                "shape": [[1]]
+            }
+        ]
+    }
+]

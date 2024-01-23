@@ -101,6 +101,10 @@ class AmbushCard(Card):
         return shape
 
 
+class RuinCard(Card):
+    pass
+
+
 class ScoringCard(Card):
     task_type: ScoringTypes
     solo_points: PositiveInt

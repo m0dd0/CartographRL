@@ -1,0 +1,131 @@
+[
+    {
+        "name": "Sentinel Woods",
+        "card_id": 26,
+        "task_type": "F",
+        "description": "Earn one reputation star for each forest space adjacent to the edge of the map.",
+        "evaluation_function": "sentinel_woods",
+        "solo_points": 25
+    },
+    {
+        "name": "Greenbough",
+        "card_id": 27,
+        "task_type": "F",
+        "description": "Earn one reputation star for each row and columns with at least one forest space. The same forest space may be scored in a row and a column.",
+        "evaluation_function": "greenbough",
+        "solo_points": 22
+    },
+    {
+        "name": "Treetower",
+        "card_id": 28,
+        "task_type": "F",
+        "description": "Earn one reputation star for each forest space surrounded on all four sides by filled spaces or the edge of the map.",
+        "evaluation_function": "treetower",
+        "solo_points": 17
+    },
+    {
+        "name": "Stoneside Forest",
+        "card_id": 29,
+        "task_type": "F",
+        "description": "Earn three reputation star for each mountain space connected to anoter mountain space by a cluster of forest spaces.",
+        "evaluation_function": "stoneside_forest",
+        "solo_points": 18
+    },
+    {
+        "name": "Canal Lake",
+        "card_id": 30,
+        "task_type": "WL",
+        "description": "Earn one reputation star for each water space adjacent to at least one farm space. Earn one reputation star for each farm space adjacent to at least one water space.",
+        "evaluation_function": "canal_lake",
+        "solo_points": 24
+    },
+    {
+        "name": "Mages Valley",
+        "card_id": 31,
+        "task_type": "WL",
+        "description": "Earn two reputation stars for each water space adjacent to a mountain soace. Earn on reputation star for each farm space adjacent to a mountain space.",
+        "evaluation_function": "mages_valley",
+        "solo_points": 22
+    },
+    {
+        "name": "The Golden Granary",
+        "card_id": 32,
+        "task_type": "WL",
+        "description": "Earn one reputation star for each water space adjacent to a ruins space. Earn three reputation stars for each farm space on a ruins space.",
+        "evaluation_function": "the_golden_granary",
+        "solo_points": 20
+    },
+    {
+        "name": "Shoreside Expanse",
+        "card_id": 33,
+        "task_type": "WL",
+        "description": "Earn three reputation stars for each cluster of farm spaces not adjacent to a water sapce or the edge of the map. Earn three reputation stars for each cluster of water spaces not adjacent to a farm space or the edge of the map.",
+        "evaluation_function": "shoreside_expanse",
+        "solo_points": 27
+    },
+    {
+        "name": "Wildholds",
+        "card_id": 34,
+        "task_type": "V",
+        "description": "Earn eight reputation stars for each cluster of six or more village spaces.",
+        "evaluation_function": "wildholds",
+        "solo_points": 16
+    },
+    {
+        "name": "Great City",
+        "card_id": 35,
+        "task_type": "V",
+        "description": "Earn one reputation star for each village space in the largest cluster of village spaces that is not adjacent to a mountain space.",
+        "evaluation_function": "great_city",
+        "solo_points": 16
+    },
+    {
+        "name": "Greengold Plains",
+        "card_id": 36,
+        "task_type": "V",
+        "description": "Earn three reputation stars for each cluster of village spaces that is adjacent to three or more different terrain types.",
+        "evaluation_function": "greengold_plains",
+        "solo_points": 21
+    },
+    {
+        "name": "Shieldgate",
+        "card_id": 37,
+        "task_type": "V",
+        "description": "Earn two reputation star for each village space in the second largest cluster of village spaces.",
+        "evaluation_function": "shieldgate",
+        "solo_points": 20
+    },
+    {
+        "name": "Borderlands",
+        "card_id": 38,
+        "task_type": "G",
+        "description": "Earn six reputation stars for each complete row or complete column of filled spaces.",
+        "evaluation_function": "borderlands",
+        "solo_points": 24
+    },
+    {
+        "name": "Lost Barony",
+        "card_id": 39,
+        "task_type": "G",
+        "description": "Earn three reputation stars for each space along one edge of the largest square of filled spaces.",
+        "evaluation_function": "lost_barony",
+        "solo_points": 24
+    },
+    {
+        "name": "Thr Broken Road",
+        "card_id": 40,
+        "task_type": "G",
+        "description": "Earn three reputation stars for each complete diagonal line of filled spaces that touches the left and bottom edges of the map.",
+        "evaluation_function": "thr_broken_road",
+        "solo_points": 24
+    },
+    {
+        "name": "The Cauldrons",
+        "card_id": 41,
+        "task_type": "G",
+        "description": "Earn one reputation star for each empty space surrounded on all four sides by filled spaces or the edge of the map.",
+        "evaluation_function": "the_cauldrons",
+        "solo_points": 20
+    }
+
+]

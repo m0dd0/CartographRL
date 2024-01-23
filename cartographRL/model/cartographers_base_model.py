@@ -22,9 +22,9 @@ class Rotation(Enum):
     COUNTERCLOCKWISE = "CC"
 
 
-class ScoringTypes(Enum):
+class TaskType(Enum):
     VILLAGE = "V"
-    WATER_AND_FARMS = "W"
+    WATER_AND_FARMS = "WL"
     FOREST = "F"
     GEOMETRY = "G"
 
@@ -106,10 +106,11 @@ class RuinCard(Card):
 
 
 class ScoringCard(Card):
-    task_type: ScoringTypes
+    task_type: TaskType
     solo_points: PositiveInt
     description: str
     evaluation_function: str
+    solo_points: PositiveInt
 
     @validator("evaluation_function")
     @classmethod

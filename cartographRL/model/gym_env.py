@@ -1,6 +1,6 @@
 from gym import Env
 
-from .model.carthographer_model_base import CarthographerModelBase
+from carthographRL.model.carthographer_model_base import CarthographerModelBase
 
 
 class CarthographersEnv(Env):

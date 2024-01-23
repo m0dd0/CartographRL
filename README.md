@@ -22,7 +22,6 @@ carthograph_rl
 │   │   ├── scoringcards.json
 │   │   ├── maps.json
 ├── app
-│   ├── __init__.py
 │   ├── static
 │   │   ├── css
 │   │   ├── js
@@ -33,7 +32,11 @@ carthograph_rl
 
 ## Design Decisions
 - The `gym_env.py` gets an implementation object of the cartograph game and wraps it with gym interface. This way we can have different implementations of the cartograph game and use them in the same gym environment. Also the we have the model separated from the gym environment, which we only need for the RL part.
-- How to strucuture/place/save the game assets? (maps, action cards, scoring cards): 
+- The format of the game assets is choosen so that it is easy to add the assets. Any conversions for performance reasons can be done in the implementation of the cartograph game. For example, the maps are stored as a list of lists, but the implementation can convert it to index based hash map for faster access.
+- The exact format (names of attributes etc.) are specified by using pedantic dataclasses. This way we can easily serialize and deserialize the dataclasses to json and back. Also we can use the dataclasses as type hints for the functions. The classes representing the game assets do not contain any logic and are only used to store the data. The logic is implemented in the implementation of the cartograph game and can be dfifferent for different implementations.
+- Monster cards, ruin cards, normal cards: These cards are all "exploration cards". However they serve different purposes and are also played differntly. Temple cards do not contain any dedicated information. It is therfore not necessary to save them as an assets. Rather the number of ruin cards in the deck needs to be specified somewhere. Monster cards however can be seen as a special type of normal exploraation casrds which also contain additional information on the attack (rotation direction). However as the mosnter cards behave completely differently and there might be additional mechanism added to monsters in future it seems to make more sense to have a dedicated monster card class instead of subclassing the normal exploration card class. Consequently we also create a new asset file and a new pedantic dataclass for the monster cards.
+- Monster cards are named Ambush cards to be consistent with the game rules.
 
-## Model Perofrmance Optimization
+
+## Model Performance Optimization
 - most exploration option are very symmetric --> precompute possible transformations and thereby reduce action set for mcts

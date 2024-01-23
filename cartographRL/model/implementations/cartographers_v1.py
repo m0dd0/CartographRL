@@ -1,3 +1,6 @@
+"""This implementation is kepp as simple as possible to allow for easy testing of the environment.
+It does not include any performance optimizations."""
+
 from typing import List
 import random
 

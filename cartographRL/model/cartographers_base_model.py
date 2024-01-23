@@ -14,6 +14,12 @@ class Terrains(Enum):
     MOUNTAIN = "M"
     FIELD = "L"
     VILLAGE = "V"
+    AMBUSH = "A"
+
+
+class Rotation(Enum):
+    CLOCKWISE = "C"
+    COUNTERCLOCKWISE = "CC"
 
 
 class ScoringTypes(Enum):
@@ -21,6 +27,13 @@ class ScoringTypes(Enum):
     WATER_AND_FARMS = "W"
     FOREST = "F"
     GEOMETRY = "G"
+
+
+class AmbushCorner(Enum):
+    TOP_LEFT = "TL"
+    TOP_RIGHT = "TR"
+    BOTTOM_LEFT = "BL"
+    BOTTOM_RIGHT = "BR"
 
 
 class Map(BaseModel):
@@ -52,6 +65,11 @@ class Map(BaseModel):
         return ruins
 
 
+class Card(BaseModel, ABC):
+    name: str
+    card_id: int
+
+
 class ExplorationOption(BaseModel):
     coin: bool
     shape: List[List[bool]]
@@ -65,16 +83,25 @@ class ExplorationOption(BaseModel):
         return shape
 
 
-class ExplorationCard(BaseModel):
-    name: str
-    card_id: int
+class ExplorationCard(Card):
     time: PositiveInt
     options: conlist(ExplorationOption, min_items=1, max_items=5)
 
 
-class ScoringCard(BaseModel):
-    name: str
-    card_id: int
+class AmbushCard(Card):
+    rotation: Rotation
+    corner: AmbushCorner
+    shape: List[List[bool]]
+
+    @validator("shape")
+    @classmethod
+    def shape_must_be_rectangle(cls, shape):
+        if not all(len(row) == len(shape[0]) for row in shape):
+            raise ValueError("Shape must be rectangular")
+        return shape
+
+
+class ScoringCard(Card):
     task_type: ScoringTypes
     solo_points: PositiveInt
     description: str

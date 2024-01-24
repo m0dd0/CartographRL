@@ -132,6 +132,8 @@ class CartographersBaseModel(ABC):
         map: Map,
         scoring_cards: List[ScoringCard],
         exploration_cards: List[ExplorationCard],
+        ambush_cards: List[AmbushCard],
+        ruin_cards: List[RuinCard],
         season_times: List[int],
     ):
         assert len(scoring_cards) == len(
@@ -141,6 +143,8 @@ class CartographersBaseModel(ABC):
         self._map = map
         self._scoring_cards = scoring_cards
         self._all_exploration_cards = exploration_cards
+        self._all_ambush_cards = ambush_cards
+        self._all_ruin_cards = ruin_cards
         self._season_times = season_times
 
     @property
@@ -154,6 +158,14 @@ class CartographersBaseModel(ABC):
     @property
     def all_exploration_cards(self) -> List[ExplorationCard]:
         return self._all_exploration_cards
+
+    @property
+    def all_ambush_cards(self) -> List[AmbushCard]:
+        return self._all_ambush_cards
+
+    @property
+    def all_ruin_cards(self) -> List[RuinCard]:
+        return self._all_ruin_cards
 
     @property
     def season_times(self) -> List[int]:
@@ -179,21 +191,20 @@ class CartographersBaseModel(ABC):
     def is_game_over(self) -> bool:
         raise NotImplementedError
 
-    @property
     @abstractmethod
-    def current_score(self) -> int:
+    def calculate_score(self) -> int:
         raise NotImplementedError
 
-    @abstractmethod
-    def is_playable(
-        self,
-        exploration_option: ExplorationOption,
-        x: int,
-        y: int,
-        rotation: int,
-        flip: bool,
-    ) -> bool:
-        raise NotImplementedError
+    # @abstractmethod
+    # def is_playable(
+    #     self,
+    #     exploration_option: ExplorationOption,
+    #     x: int,
+    #     y: int,
+    #     rotation: int,
+    #     flip: bool,
+    # ) -> bool:
+    #     raise NotImplementedError
 
     @abstractmethod
     def play(

@@ -10,6 +10,8 @@ from cartographRL.model.cartographers_base_model import (
     ScoringCard,
     ExplorationCard,
     ExplorationOption,
+    RuinCard,
+    AmbushCard,
     Terrains,
 )
 
@@ -20,9 +22,18 @@ class Cartographers(CartographersBaseModel):
         map: Map,
         scoring_cards: List[ScoringCard],
         exploration_cards: List[ExplorationCard],
+        ruin_cards: List[RuinCard],
+        ambush_cards: List[AmbushCard],
         season_times: List[int],
     ):
-        super().__init__(map, scoring_cards, exploration_cards, season_times)
+        super().__init__(
+            map,
+            scoring_cards,
+            exploration_cards,
+            ambush_cards,
+            ruin_cards,
+            season_times,
+        )
 
         self._current_season = 0
         self._current_time = 0
@@ -31,7 +42,6 @@ class Cartographers(CartographersBaseModel):
         )
         self._current_exploration_options = self._exploration_cards.pop().options
         self._is_game_over = False
-        self._score = 0
 
     @property
     def current_season(self) -> int:
@@ -49,9 +59,11 @@ class Cartographers(CartographersBaseModel):
     def is_game_over(self) -> bool:
         return self._is_game_over
 
-    @property
-    def current_score(self) -> int:
-        return self._score
+    def calculate_score(self) -> int:
+        score = 0
+        for scoring_card in self._scoring_cards:
+            score += scoring_card.evaluation_function(self._map)
+        return score
 
     def _transform_shape(
         self,
@@ -59,50 +71,70 @@ class Cartographers(CartographersBaseModel):
         rotation: int,
         flip: bool,
     ) -> List[List[bool]]:
-        new_shape = []
-        if rotation = 0:
-            new_shape = exploration_option.shape
-        # elif rotation = 1:
-        #     for y, row in enumerate(exploration_option.shape):
-        #         for x, cell in enumerate(row):
-        #             new_shape[x][y] = cell
-        # elif rotation = 2:
-        #     for y, row in enumerate(exploration_option.shape):
-        #         for x, cell in enumerate(row):
-        #             new_shape[x][y] = cell
-        return new_shape
-
-    def is_playable(
-        self,
-        exploration_option: ExplorationOption,
-        x: int,
-        y: int,
-        rotation: int,
-        flip: bool,
-    ) -> bool:
-        transformed_shape = self._transform_exploration_option(
-            exploration_option, rotation, flip
-        )
-        for y_new, new_row in enumerate(exploration_option.shape):
-            for x_new, new_cell in enumerate(new_row):
-                if not new_cell:
+        rotation = rotation % 4
+        new_shape = [[False for _ in range(len(shape))] for _ in range(len(shape[0]))]
+        for y, row in enumerate(shape):
+            for x, cell in enumerate(row):
+                if not cell:
                     continue
 
                 if rotation == 1:
-                    x_new, y_new = y_new, -x_new + exploration_option.shape.width - 1
+                    x, y = y, -x + len(shape) - 1
                 elif rotation == 2:
-                    x_new, y_new = (
-                        -x_new + exploration_option.shape.width - 1,
-                        -y_new + exploration_option.shape.height - 1,
-                    )
+                    x, y = -x + len(shape) - 1, -y + len(shape[0]) - 1
                 elif rotation == 3:
-                    x_new, y_new = -y_new + exploration_option.shape.height - 1, x_new
+                    x, y = -y + len(shape[0]) - 1, x
                 if flip:
-                    x_new = -x_new + exploration_option.shape.width - 1
-                if not self.map[y + y_new][x + x_new] == Terrains.EMPTY:
-                    return False
+                    x = -x + len(shape) - 1
+                new_shape[x][y] = True
 
+        return new_shape
+
+    def _shape_is_setable_at(self, shape: List[List[bool]], x, y) -> bool:
+        for shape_y, row in enumerate(shape):
+            for shape_x, cell in enumerate(row):
+                if not cell:
+                    continue
+
+                if (
+                    x + shape_x >= len(self._map)
+                    or y + shape_y >= len(self._map[0])
+                    or self._map[x + shape_x][y + shape_y] != Terrains.EMPTY
+                ):
+                    return False
         return True
+
+    def _shape_is_setable_on_map(self, shape: List[List[bool]]) -> bool:
+        for x in range(len(self._map)):
+            for y in range(len(self._map[0])):
+                if self._shape_is_setable_at(shape, x, y):
+                    return True
+        return False
+
+    def _option_is_playable_on_map(self, exploration_option: ExplorationOption) -> bool:
+        for rotation in range(4):
+            for flip in [False, True]:
+                transformed_shape = self._transform_shape(
+                    exploration_option.shape, rotation, flip
+                )
+                if self._shape_is_setable_on_map(transformed_shape):
+                    return True
+        return False
+
+    def _action_is_playable(
+        self, exploration_option: ExplorationOption, x, y, rotation, flip
+    ) -> bool:
+        transformed_shape = self._transform_shape(
+            exploration_option.shape, rotation, flip
+        )
+        return self._shape_is_setable_at(transformed_shape, x, y)
+
+    def _option_is_rift_lands(self, exploration_option: ExplorationOption) -> bool:
+        return (
+            len(exploration_option.shape) == 1
+            and len(exploration_option.shape[0]) == 1
+            and exploration_option.coin == False
+        )
 
     def play(
         self,
@@ -112,11 +144,26 @@ class Cartographers(CartographersBaseModel):
         rotation: int,
         flip: bool,
     ):
-        assert exploration_option in self._current_exploration_options
-        assert self.is_playable(exploration_option, x, y, rotation, flip)
+        assert not self._is_game_over
+        assert (exploration_option in self._current_exploration_options) or (
+            not self._option_is_playable_on_map(exploration_option)
+            and self._option_is_rift_lands(exploration_option)
+        )
+        assert self._action_is_playable(exploration_option, x, y, rotation, flip)
+
+        transformed_shape = self._transform_shape(
+            exploration_option.shape, rotation, flip
+        )
+        for shape_y, row in enumerate(transformed_shape):
+            for shape_x, cell in enumerate(row):
+                if not cell:
+                    continue
+
+                self._map[x + shape_x][y + shape_y] = exploration_option.terrain
 
         self._current_time += exploration_option.time
         if self._current_time >= self._season_times[self._current_season]:
             self._current_time = 0
             self._current_season += 1
         self._current_exploration_options = self._exploration_cards.pop().options
+        self._is_game_over = self._current_season >= len(self._season_times)

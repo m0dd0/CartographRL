@@ -126,6 +126,14 @@ class ScoringCard(Card):
         return evaluation_function
 
 
+class Action(BaseModel):
+    exploration_option: ExplorationOption
+    x: int
+    y: int
+    rotation: int
+    flip: bool
+
+
 class CartographersBaseModel(ABC):
     def __init__(
         self,
@@ -189,6 +197,11 @@ class CartographersBaseModel(ABC):
     @property
     @abstractmethod
     def is_game_over(self) -> bool:
+        raise NotImplementedError
+
+    @property
+    @abstractmethod
+    def ruin_card_active(self) -> bool:
         raise NotImplementedError
 
     @abstractmethod
